@@ -58,6 +58,13 @@ const LL_DATA = {
     ]
   },
 
+  // 難度：rules 會覆蓋 RULES 的同名數值。第一次玩一律是新手，過關後解鎖正常。
+  MODES: {
+    easy: { name: '新手', desc: '氣比較充足，禍患比較輕。適合第一次治理。', rules: { QI_START: 5, WOE_DAMAGE: 2 } },
+    normal: { name: '正常', desc: '照古人的標準治理王國。', rules: {} }
+  },
+  MODE_ORDER: ['easy', 'normal'],
+
   OPPOSITE: { 生: '收', 收: '生', 長: '藏', 藏: '長' },
 
   RESTS: {

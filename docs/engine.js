@@ -1,7 +1,14 @@
 // 靈蘭規則引擎：純函式，不碰 DOM 與 localStorage。
 // 每個操作都回傳 { state, log }，不修改傳入的狀態。
 const LL_ENGINE = (function (D) {
-  const R = D.RULES;
+  const R = D.RULES; // 不分難度的常數（範圍、狀態字樣、評等）
+  const MODE_CACHE = {};
+  // 依難度合併出這一局的規則
+  function rulesOf(s) {
+    const mode = s && D.MODES[s.mode] ? s.mode : 'normal';
+    if (!MODE_CACHE[mode]) MODE_CACHE[mode] = Object.assign({}, D.RULES, D.MODES[mode].rules);
+    return MODE_CACHE[mode];
+  }
   const MINISTER_ELS = D.ELEMENTS.filter(e => e !== D.SOVEREIGN);
 
   // ---- 亂數（mulberry32，狀態存在 state.rng）----
@@ -29,8 +36,8 @@ const LL_ENGINE = (function (D) {
   function statusOf(v) {
     return R.STATUS.find(x => v <= x.max).name;
   }
-  function tokensFor(fire) {
-    return R.TOKENS.find(x => fire >= x.min).n;
+  function tokensFor(fire, mode) {
+    return rulesOf({ mode }).TOKENS.find(x => fire >= x.min).n;
   }
   function rankFor(de) {
     return R.RANKS.find(x => de >= x.min).name;
@@ -74,6 +81,7 @@ const LL_ENGINE = (function (D) {
 
   // 一旬開始：晨報、補牌、發令
   function startTurn(s, log) {
+    const R = rulesOf(s);
     s.lamp = false;
     s.seasonGain = false;
     s.seasonTagPlayed = false;
@@ -85,13 +93,14 @@ const LL_ENGINE = (function (D) {
       log.push({ type: 'omen', id });
     }
     while (s.hand.length < R.HAND && drawOne(s, log)) { /* 補牌 */ }
-    s.tokens = tokensFor(s.qi[D.SOVEREIGN]);
+    s.tokens = tokensFor(s.qi[D.SOVEREIGN], s.mode);
     log.push({ type: 'tokens', n: s.tokens });
   }
 
-  function newGame(seed) {
+  function newGame(seed, mode) {
     const s = {
       v: 1,
+      mode: D.MODES[mode] ? mode : 'normal',
       seed: seed >>> 0,
       rng: seed >>> 0,
       season: 0,
@@ -113,6 +122,7 @@ const LL_ENGINE = (function (D) {
       stats: { omen: 0, woe: 0, dispel: 0 },
       over: null
     };
+    const R = rulesOf(s);
     D.ELEMENTS.forEach(el => { s.qi[el] = R.QI_START; });
     MINISTER_ELS.forEach(el => { s.leave[el] = false; });
     const se = season(s);
@@ -137,6 +147,7 @@ const LL_ENGINE = (function (D) {
     const check = canPlay(state, handIndex);
     if (!check.ok) return { state, log: [{ type: 'denied', reason: check.reason }] };
     const s = clone(state);
+    const R = rulesOf(s);
     const log = [];
     const id = s.hand.splice(handIndex, 1)[0];
     const card = D.CARDS[id];
@@ -178,6 +189,7 @@ const LL_ENGINE = (function (D) {
     if (state.over) return { state, log: [{ type: 'denied', reason: '本季已結束' }] };
     if (state.lamp) return { state, log: [{ type: 'denied', reason: '今晚已經挑過燈了' }] };
     const s = clone(state);
+    const R = rulesOf(s);
     s.lamp = true;
     s.tokens += R.LAMP_TOKENS;
     return { state: s, log: [{ type: 'lamp', tokens: s.tokens }] };
@@ -187,6 +199,7 @@ const LL_ENGINE = (function (D) {
     if (state.over) return { state, log: [{ type: 'denied', reason: '本季已結束' }] };
     if (!D.RESTS[rest]) return { state, log: [{ type: 'denied', reason: '請選擇作息' }] };
     const s = clone(state);
+    const R = rulesOf(s);
     const log = [];
     const se = season(s);
 
@@ -283,6 +296,7 @@ const LL_ENGINE = (function (D) {
   function isValidState(s) {
     try {
       if (!s || s.v !== 1 || typeof s.rng !== 'number' || !D.SEASONS[s.season]) return false;
+      if (s.mode !== undefined && !D.MODES[s.mode]) return false;
       if (!(s.turn >= 1 && s.turn <= R.TURNS)) return false;
       if (!D.ELEMENTS.every(el => Number.isInteger(s.qi[el]) && s.qi[el] >= R.QI_MIN && s.qi[el] <= R.QI_MAX)) return false;
       const cards = [].concat(s.deck, s.hand, s.discard);
@@ -300,7 +314,7 @@ const LL_ENGINE = (function (D) {
 
   return {
     newGame, playCard, burnLamp, endTurn, canPlay,
-    matches, statusOf, tokensFor, rankFor, isValidState, generator, controller,
+    matches, statusOf, tokensFor, rankFor, rulesOf, isValidState, generator, controller,
     MINISTER_ELS
   };
 })(typeof LL_DATA !== 'undefined' ? LL_DATA : require('./data.js'));

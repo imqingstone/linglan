@@ -3,6 +3,8 @@
   const D = LL_DATA, E = LL_ENGINE, R = D.RULES;
   const SAVE_KEY = 'linglan.save.v1';
   const TOUR_KEY = 'linglan.tour';
+  const MODE_KEY = 'linglan.mode';
+  const UNLOCK_KEY = 'linglan.unlocked';
   const LINE_MS = 280;
   const $ = id => document.getElementById(id);
   const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -74,13 +76,21 @@
   const title = el => M(el).title;
   const who = el => `${M(el).title}（${M(el).organ}）`;
   const sign = n => (n > 0 ? '+' : '−') + Math.abs(n);
-  const fill = t => t.replace('{DISPEL}', R.WEATHER_DISPEL);
+  const fill = t => t.replace('{DISPEL}', RR().WEATHER_DISPEL);
   function newSeed() {
     try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return (Date.now() ^ (Math.random() * 4294967296)) >>> 0; }
   }
   function openDlg(id) { const d = $(id); if (!d.open) d.showModal(); d.scrollTop = 0; }
   function closeDlg(id) { const d = $(id); if (d.open) d.close(); }
   const season = s => D.SEASONS[s.season];
+  const RR = () => E.rulesOf(game);
+  const unlocked = () => flag(UNLOCK_KEY);
+  function chosenMode() {
+    if (!unlocked()) return D.MODE_ORDER[0];
+    try { const m = localStorage.getItem(MODE_KEY); if (D.MODES[m]) return m; } catch (e) { /* 略過 */ }
+    return D.MODE_ORDER[0];
+  }
+  function setMode(m) { try { localStorage.setItem(MODE_KEY, m); } catch (e) { /* 略過 */ } }
 
   // 這張牌和當季的關係：順時、逆時或無
   function timing(s, cardId) {
@@ -110,7 +120,7 @@
   function renderTop(s) {
     const se = season(s);
     $('term').textContent = se.terms[s.turn - 1];
-    $('turn-no').textContent = `第 ${s.turn} 旬・共 ${R.TURNS} 旬`;
+    $('turn-no').textContent = `第 ${s.turn} 旬・共 ${R.TURNS} 旬・${D.MODES[s.mode || 'normal'].name}`;
     $('season-tag').textContent = `${se.name}・${se.tag}`;
     $('de').textContent = s.de;
     $('goal').innerHTML = `<b>目標</b>平安度過 ${R.TURNS} 旬，別讓大臣的氣掉到 ${R.LEAVE_AT} 以下`;
@@ -163,7 +173,7 @@
       const badges = [];
       if (ev) badges.push('<span class="badge fix">可化解</span>');
       if (t === 'shun') badges.push('<span class="badge shun">順時</span>');
-      if (t === 'ni') badges.push(`<span class="badge ni">逆時・${title(season(s).el)} −${R.SEASON_LOSS}</span>`);
+      if (t === 'ni') badges.push(`<span class="badge ni">逆時・${title(season(s).el)} −${RR().SEASON_LOSS}</span>`);
       b.className = 'card' + (ev ? ' fixes' : '');
       b.dataset.el = c.el;
       b.disabled = !can.ok;
@@ -201,7 +211,7 @@
         return e.ok ? { text: `${D.RESTS[e.rest].name}，作息合時。`, tone: 'good' } : { text: `${D.RESTS[e.rest].name}，與${se.name}天的作息不合，沒有加分。`, tone: 'bad' };
       case 'resolve': return { text: `化解了「${D.EVENTS[e.id].name}」${e.stage === 'omen' ? '，防患於未然' : ''}。`, tone: 'good' };
       case 'dispel': return { text: `${title(D.EVENTS[e.id].el)}夠強壯，「${D.EVENTS[e.id].name}」自行消散了。`, tone: 'good' };
-      case 'woe': return { text: `「${D.EVENTS[e.id].name}」沒有當天處理，成了禍患：之後每旬 ${title(D.EVENTS[e.id].el)} −${R.WOE_DAMAGE}。`, tone: 'bad' };
+      case 'woe': return { text: `「${D.EVENTS[e.id].name}」沒有當天處理，成了禍患：之後每旬 ${title(D.EVENTS[e.id].el)} −${RR().WOE_DAMAGE}。`, tone: 'bad' };
       case 'leave': return e.on ? { text: `${who(e.el)}撐不住，告假了。他的牌暫時不能用。`, tone: 'bad' } : { text: `${title(e.el)}恢復元氣，回朝了。`, tone: 'good' };
       case 'reshuffle': return { text: '用過的牌洗回牌庫。', tone: '' };
       case 'qi': {
@@ -333,8 +343,8 @@
     openDlg('dlg-sum');
   }
 
-  function startNew() {
-    const r = E.newGame(newSeed());
+  function startNew(mode) {
+    const r = E.newGame(newSeed(), mode || chosenMode());
     game = r.state;
     save();
     try { const gc = window.goatcounter; if (gc && gc.count) gc.count({ path: 'linglan-play', title: '靈蘭即位', event: true, no_session: true }); } catch (e) { /* 略過 */ }
@@ -348,7 +358,7 @@
     { target: null, text: '陛下即位了。古人把身體看成一座王國：心是君主，肝是將軍，脾胃是司倉，肺是宰相，腎是大匠。陛下，就是這個身體的主人。' },
     { target: 'kingdom', text: '每位都有「氣」，從 0 到 10。在 4 到 8 之間最安穩，太低會生病告假，太高也會出問題。點人物可以看詳細說明。' },
     { target: 'goal', text: () => `目標是平安度過 ${R.TURNS} 旬。大臣的氣掉到 ${R.LEAVE_AT} 以下就會告假；兩位同時告假，或君主的氣歸零，王國就撐不下去了。` },
-    { target: 'events', text: () => `早上傳來的徵兆，是身體出狀況前的小訊號。點開看我的解說。當天化解德最高；拖過一天就成了禍患，每旬扣 ${R.WOE_DAMAGE} 點氣。` },
+    { target: 'events', text: () => `早上傳來的徵兆，是身體出狀況前的小訊號。點開看我的解說。當天化解德最高；拖過一天就成了禍患，每旬扣 ${RR().WOE_DAMAGE} 點氣。` },
     { target: 'hand', text: '點一張牌，就是下一道令。標著「可化解」的牌能處理眼前的徵兆；「順時」的牌順著季節，有額外好處；「逆時」的牌會傷人，能免則免。' },
     { target: 'tokens', text: '每旬能下的令有限。君主的氣越高，令就越多，所以睡眠很重要。' },
     { target: 'btn-sleep', text: '令用完就就寢。選對作息，君主隔天精神更好。「挑燈」能多一道令，但很傷身，非不得已別用。好了，開始治理吧。' }
@@ -396,9 +406,28 @@
     const saved = load();
     $('btn-continue').hidden = !(saved && !saved.over);
     $('btn-new').textContent = saved && !saved.over ? '重新即位' : '即位';
+    renderModes();
     $('title-view').hidden = false;
     $('game-view').hidden = true;
     window.scrollTo(0, 0);
+  }
+  function renderModes() {
+    const box = $('modes');
+    const open = unlocked();
+    box.hidden = !open;
+    $('mode-note').textContent = open ? D.MODES[chosenMode()].desc : `第一次治理從${D.MODES[D.MODE_ORDER[0]].name}開始，過關後可以挑戰${D.MODES[D.MODE_ORDER[1]].name}難度。`;
+    if (!open) return;
+    const cur = chosenMode();
+    box.innerHTML = '';
+    D.MODE_ORDER.forEach(m => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(m === cur));
+      b.textContent = D.MODES[m].name;
+      b.addEventListener('click', () => { setMode(m); renderModes(); });
+      box.appendChild(b);
+    });
   }
   function endTourQuiet() { clearTarget(); $('coach').hidden = true; }
   function showGame() {
@@ -416,7 +445,7 @@
     $('ev-name').textContent = def.name;
     $('ev-omen').textContent = def.omen;
     $('ev-woe').hidden = e.stage !== 'woe';
-    $('ev-woe').textContent = `已經拖成禍患：每旬結算時 ${title(def.el)} −${R.WOE_DAMAGE}，直到化解為止。現在化解，德只有 +${R.DE_WOE}。`;
+    $('ev-woe').textContent = `已經拖成禍患：每旬結算時 ${title(def.el)} −${RR().WOE_DAMAGE}，直到化解為止。現在化解，德只有 +${RR().DE_WOE}。`;
     $('ev-why').textContent = fill(def.why);
     $('ev-quote').textContent = `「${def.quote}」`;
     openDlg('dlg-event');
@@ -432,7 +461,7 @@
     else if (el !== D.SOVEREIGN && v <= R.LEAVE_AT + 1) parts.push(`快撐不住了，再掉到 ${R.LEAVE_AT} 以下就會告假。`);
     if (v >= R.GEN_AT) parts.push(`氣盛，結算時會帶動${title(D.GEN[el])}（${el}生${D.GEN[el]}）。`);
     if (v >= R.OVER_AT) parts.push(`過亢，結算時會壓制${title(D.CTRL[el])}（${el}剋${D.CTRL[el]}），自己也會耗損。`);
-    if (el === D.SOVEREIGN) parts.push(`君主的氣決定每旬的令：現在是 ${E.tokensFor(v)} 道。`);
+    if (el === D.SOVEREIGN) parts.push(`君主的氣決定每旬的令：現在是 ${E.tokensFor(v, game.mode)} 道。`);
     $('mi-state').textContent = parts.join('');
     openDlg('dlg-minister');
   }
@@ -459,6 +488,13 @@
     $('over-decree').innerHTML = `<span>${se.decree}</span><cite>${se.decreeSource}</cite>`;
     $('over-reveal').hidden = !o.win;
     $('over-reveal').textContent = D.TEXT.reveal;
+    const nextMode = D.MODE_ORDER[D.MODE_ORDER.indexOf(game.mode || 'normal') + 1];
+    const canAdvance = o.win && !!nextMode;
+    if (canAdvance && !unlocked()) flag(UNLOCK_KEY, true);
+    $('over-unlock').hidden = !canAdvance;
+    $('over-unlock').textContent = canAdvance ? `已解鎖「${D.MODES[nextMode].name}」難度：${D.MODES[nextMode].desc}` : '';
+    $('btn-again').textContent = canAdvance ? `挑戰${D.MODES[nextMode].name}難度` : '再來一次';
+    $('btn-again').dataset.mode = canAdvance ? nextMode : (game.mode || 'normal');
     openDlg('dlg-over');
   }
 
@@ -484,12 +520,21 @@
     $('season-tag').addEventListener('click', () => toast(season(game).tagNote));
     document.querySelectorAll('.region').forEach(b => b.addEventListener('click', () => showMinister(b.dataset.el)));
     $('m-tour').addEventListener('click', startTour);
-    $('m-help').addEventListener('click', () => { closeDlg('dlg-menu'); openDlg('dlg-help'); });
+    $('m-help').addEventListener('click', () => {
+      closeDlg('dlg-menu');
+      document.querySelectorAll('[data-r]').forEach(el => { el.textContent = RR()[el.dataset.r]; });
+      openDlg('dlg-help');
+    });
     $('m-export').addEventListener('click', () => { closeDlg('dlg-menu'); exportSave(); });
-    $('m-restart').addEventListener('click', () => { closeDlg('dlg-menu'); if (confirm('重新即位會清除目前的進度，確定嗎？')) startNew(); });
+    $('m-restart').addEventListener('click', () => { closeDlg('dlg-menu'); if (confirm('重新即位會清除目前的進度，確定嗎？')) startNew(game.mode); });
     $('m-home').addEventListener('click', showTitle);
     $('btn-home').addEventListener('click', () => { closeDlg('dlg-over'); clearSave(); game = null; showTitle(); });
-    $('btn-again').addEventListener('click', () => { closeDlg('dlg-over'); startNew(); });
+    $('btn-again').addEventListener('click', () => {
+      const m = $('btn-again').dataset.mode;
+      closeDlg('dlg-over');
+      setMode(m);
+      startNew(m);
+    });
     $('coach-next').addEventListener('click', () => { if (tourStep < TOUR.length - 1) { tourStep++; showTourStep(); } else endTour(); });
     $('coach-skip').addEventListener('click', endTour);
     document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !$('coach').hidden) endTour(); });

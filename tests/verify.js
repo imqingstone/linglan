@@ -349,6 +349,26 @@ test('結束後所有操作都被拒絕', () => {
   assert.strictEqual(E.endTurn(s, 'late-early').log[0].type, 'denied');
 });
 
+// ---------- 難度 ----------
+test('難度：新手開局氣較多、禍患較輕，正常不受影響', () => {
+  const easy = E.newGame(3, 'easy').state, normal = E.newGame(3).state;
+  assert.strictEqual(easy.mode, 'easy'); assert.strictEqual(normal.mode, 'normal');
+  D.ELEMENTS.forEach(el => assert.strictEqual(easy.qi[el], E.rulesOf(easy).QI_START));
+  assert.ok(E.rulesOf(easy).QI_START > E.rulesOf(normal).QI_START);
+  assert.ok(E.rulesOf(easy).WOE_DAMAGE < E.rulesOf(normal).WOE_DAMAGE);
+  assert.strictEqual(E.rulesOf(normal).WOE_DAMAGE, R.WOE_DAMAGE);
+  const s = clone(easy); s.events = [{ id: 'rage', stage: 'woe', since: 1 }]; s.qi.木 = 5;
+  assert.strictEqual(E.endTurn(s, 'early-late').state.qi.木, 5 - E.rulesOf(easy).WOE_DAMAGE);
+});
+
+test('難度：不認得的難度視為正常；舊存檔沒有難度欄位也能讀', () => {
+  assert.strictEqual(E.newGame(3, 'bogus').state.mode, 'normal');
+  const old = clone(E.newGame(3).state); delete old.mode;
+  assert.ok(E.isValidState(old));
+  assert.strictEqual(E.rulesOf(old).WOE_DAMAGE, R.WOE_DAMAGE);
+  assert.ok(!E.isValidState(Object.assign(clone(old), { mode: 'bogus' })));
+});
+
 // ---------- 存檔 ----------
 test('存檔驗證', () => {
   const s = E.newGame(5).state;
@@ -382,6 +402,8 @@ function step(s, res, checks) {
   return out.state;
 }
 
+const stats = {};
+
 const STRATEGIES = {
   // 隨機亂打
   random(s, r, checks) {
@@ -411,8 +433,8 @@ const STRATEGIES = {
   }
 };
 
-function run(seed, strat, checks) {
-  let s = E.newGame(seed).state;
+function run(seed, strat, checks, mode) {
+  let s = E.newGame(seed, mode).state;
   const r = prng(seed * 7 + 3);
   let guard = 0;
   while (!s.over) {
@@ -430,11 +452,21 @@ test('重現性：同種子、同操作，結果相同', () => {
   assert.notDeepStrictEqual(E.newGame(1).state.hand, E.newGame(2).state.hand);
 });
 
-test('模擬：1000 個種子跑到結束不出錯，不變量都成立', () => {
-  for (let seed = 1; seed <= 1000; seed++) { run(seed, 'random', true); run(seed, 'simple', true); }
+test('模擬：1000 個種子跑到結束不出錯，不變量都成立（兩種難度）', () => {
+  for (let seed = 1; seed <= 1000; seed++) {
+    run(seed, 'random', true); run(seed, 'simple', true);
+    run(seed, 'random', true, 'easy'); run(seed, 'simple', true, 'easy');
+  }
 });
 
-const stats = {};
+test('平衡護欄（新手）：照提示玩 ≥ 95% 過關，且比正常容易', () => {
+  const rate = (k, mode) => { let w = 0; for (let seed = 1; seed <= 1000; seed++) if (run(seed, k, false, mode).over.win) w++; return w / 10; };
+  const easySimple = rate('simple', 'easy'), easyRandom = rate('random', 'easy');
+  stats.easy = { 照提示: easySimple + '%', 亂打: easyRandom + '%' };
+  assert.ok(easySimple >= 95, '新手照提示過關率 ' + easySimple);
+  assert.ok(easyRandom > rate('random'), '新手應比正常容易');
+});
+
 test('平衡護欄：亂打過關率 < 40%，簡單策略 70%–95%', () => {
   ['random', 'simple'].forEach(k => {
     let win = 0; const ranks = { 聖: 0, 賢: 0, 常: 0 }; let de = 0;
