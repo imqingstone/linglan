@@ -15,6 +15,18 @@ const LL_DATA = {
   },
   SOVEREIGN: '火',
 
+  // 十二官的另外七位：副官。partner 為搭檔大臣的五行，* 表示可替任何人擋。
+  DEPUTIES: {
+    gall: { name: '膽', title: '中正之官', partner: '木', line: '膽者，中正之官，決斷出焉。', role: '古人把膽看成中正之官，負責決斷，和將軍（肝）表裡相配。' },
+    small: { name: '小腸', title: '受盛之官', partner: '火', line: '小腸者，受盛之官，化物出焉。', role: '古人把小腸看成受盛之官，接收並轉化食物，和君主（心）表裡相配。' },
+    chest: { name: '膻中', title: '臣使之官', partner: '火', line: '膻中者，臣使之官，喜樂出焉。', role: '膻中在胸口，像君主身邊傳達心意的使臣，喜樂由此而出。' },
+    stomach: { name: '胃', title: '倉廩之官', partner: '土', line: '脾胃者，倉廩之官，五味出焉。', role: '原文把脾胃合稱倉廩之官。胃負責受納，和司倉（脾）一起管理糧倉。' },
+    large: { name: '大腸', title: '傳道之官', partner: '金', line: '大腸者，傳道之官，變化出焉。', role: '古人把大腸看成傳道之官，負責傳送與排出，和宰相（肺）表裡相配。' },
+    bladder: { name: '膀胱', title: '州都之官', partner: '水', line: '膀胱者，州都之官，津液藏焉，氣化則能出矣。', role: '古人把膀胱看成州都之官，儲存津液，和大匠（腎）表裡相配。' },
+    sanjiao: { name: '三焦', title: '決瀆之官', partner: '*', line: '三焦者，決瀆之官，水道出焉。', role: '三焦像疏通全國水道的官，貫通上下，所以能替任何一位大臣擋下禍患。' }
+  },
+  DEPUTY_ORDER: ['gall', 'small', 'chest', 'stomach', 'large', 'bladder', 'sanjiao'],
+
   RULES: {
     QI_MIN: 0,
     QI_MAX: 10,
@@ -39,6 +51,10 @@ const LL_DATA = {
     LEAVE_AT: 2,             // 大臣的氣降到此以下（虛）就告假
     RETURN_AT: 3,            // 告假後回朝
     DANGER_LEAVES: 2,        // 同時告假人數達此即國危
+    GUARD: false,            // 副官每季替搭檔擋下一次禍患（設計未定，先關閉）
+    GUARD_BLOCK: 99,         // 每次擋下的傷害（大於禍患傷害就是全擋）
+    GUARD_WILD: true,        // 三焦可替任何人擋
+    GUARD_MIN_QI: 0,         // 搭檔的氣在此以上，副官才擋得住
     CARRY_WEAK_AT: 5,        // 一整年模式：季末當季主角的氣低於此，下一季帶著禍患開始
     CARRY_NI: 3,             // 一整年模式：一季逆時達此次數，下一季帶著禍患開始
     SEASON_RECOVER: 3,       // 一整年模式：換季時，氣低於開局值的人各回復這麼多

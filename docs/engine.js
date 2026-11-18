@@ -123,6 +123,19 @@ const LL_ENGINE = (function (D) {
   }
 
   // year 為 true 時是一整年模式：從春天連續玩到冬天
+  // 副官：每季開始時都能再擋一次
+  function resetGuards(s) {
+    s.guards = {};
+    D.DEPUTY_ORDER.forEach(id => { s.guards[id] = true; });
+  }
+  function guardFor(s, el) {
+    if (!s.guards) return null;
+    const own = D.DEPUTY_ORDER.find(id => D.DEPUTIES[id].partner === el && s.guards[id]);
+    if (own) return own;
+    if (!rulesOf(s).GUARD_WILD) return null;
+    return D.DEPUTY_ORDER.find(id => D.DEPUTIES[id].partner === '*' && s.guards[id]) || null;
+  }
+
   // 一整年模式換季：檢查這一季有沒有照顧好，換上新一季的牌組與事件
   function nextSeason(s, log) {
     const R = rulesOf(s);
@@ -141,6 +154,7 @@ const LL_ENGINE = (function (D) {
     s.season += 1;
     s.turn = 1;
     s.seasonNi = 0;
+    resetGuards(s);
     const nse = season(s);
     s.deck = shuffle(s, nse.deck);
     s.hand = [];
@@ -183,6 +197,7 @@ const LL_ENGINE = (function (D) {
     const R = rulesOf(s);
     D.ELEMENTS.forEach(el => { s.qi[el] = R.QI_START; });
     MINISTER_ELS.forEach(el => { s.leave[el] = false; });
+    resetGuards(s);
     const se = season(s);
     s.deck = shuffle(s, se.deck);
     s.eventDeck = shuffle(s, se.events).slice(0, R.EVENT_TURNS);
@@ -268,9 +283,17 @@ const LL_ENGINE = (function (D) {
     if (s.lamp) R.LAMP_COST.forEach(([el, d]) => addQi(s, log, el, d, 'lamp'));
     else if (ok) addQi(s, log, D.SOVEREIGN, R.REST_GAIN, 'rest');
 
-    // 2. 禍患
+    // 2. 禍患：先由搭檔的副官擋下，其次由三焦（可替任何人擋），每位副官每季一次
     s.events.filter(e => e.stage === 'woe').forEach(e => {
-      addQi(s, log, D.EVENTS[e.id].el, -R.WOE_DAMAGE, 'woe:' + e.id);
+      const el = D.EVENTS[e.id].el;
+      const g = R.GUARD && s.qi[el] >= R.GUARD_MIN_QI ? guardFor(s, el) : null;
+      const blocked = g ? Math.min(R.GUARD_BLOCK, R.WOE_DAMAGE) : 0;
+      if (g) {
+        s.guards[g] = false;
+        s.stats.guard = (s.stats.guard || 0) + 1;
+        log.push({ type: 'guard', deputy: g, id: e.id, el, blocked });
+      }
+      addQi(s, log, el, -(R.WOE_DAMAGE - blocked), 'woe:' + e.id);
     });
 
     // 3. 徵兆轉禍患
@@ -361,6 +384,7 @@ const LL_ENGINE = (function (D) {
       if (!s || s.v !== 1 || typeof s.rng !== 'number' || !D.SEASONS[s.season]) return false;
       if (s.mode !== undefined && !D.MODES[s.mode]) return false;
       if (s.year !== undefined && typeof s.year !== 'boolean') return false;
+      if (s.guards !== undefined && (typeof s.guards !== 'object' || !Object.keys(s.guards).every(id => D.DEPUTIES[id]))) return false;
       if (!(s.turn >= 1 && s.turn <= R.TURNS)) return false;
       if (!D.ELEMENTS.every(el => Number.isInteger(s.qi[el]) && s.qi[el] >= R.QI_MIN && s.qi[el] <= R.QI_MAX)) return false;
       const cards = [].concat(s.deck, s.hand, s.discard);
