@@ -74,6 +74,14 @@ test('季節：夏天屬長，打長順時、打藏逆時傷君主', () => {
   assert.strictEqual(t.qi.火, 8); assert.strictEqual(t.ni, 1);
 });
 
+test('資料：藏書閣每一卷都有白話說明與出處', () => {
+  D.ELEMENTS.forEach(el => assert.ok(D.MINISTERS[el].role, el));
+  D.SEASONS.forEach(se => assert.ok(se.gloss && se.decreeSource, se.name));
+  assert.ok(D.TEXT.yearGloss && D.TEXT.yearDecree);
+  ['minister', 'event', 'carry', 'decree'].forEach(k => assert.ok(/^《黃帝內經・素問・.+》$/.test(D.SOURCES[k]), k));
+  Object.values(D.EVENTS).forEach(e => assert.ok(['emotion', 'weather', 'carry'].includes(e.kind), e.name));
+});
+
 test('資料：五行生剋各成一圈', () => {
   ['GEN', 'CTRL'].forEach(k => {
     let el = '木'; const seen = new Set();

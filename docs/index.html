@@ -16,6 +16,7 @@
   <div class="title-actions">
     <button id="btn-continue" class="primary" type="button" hidden>繼續</button>
     <button id="btn-new" class="primary" type="button">即位</button>
+    <button id="btn-library" class="ghost" type="button">藏書閣</button>
   </div>
   <details class="backup">
     <summary>進度備份</summary>
@@ -133,11 +134,20 @@
   <div class="menu">
     <button id="m-tour" class="ghost" type="button">天師導覽</button>
     <button id="m-help" class="ghost" type="button">規則總覽</button>
+    <button id="m-library" class="ghost" type="button">藏書閣</button>
     <button id="m-export" class="ghost" type="button">匯出進度</button>
     <button id="m-restart" class="ghost" type="button">重新即位</button>
     <button id="m-home" class="ghost" type="button">回到首頁</button>
   </div>
   <div class="row"><button class="primary" type="button" data-close>繼續</button></div>
+</dialog>
+
+<dialog id="dlg-library" class="dlg library">
+  <p class="dlg-kind">靈蘭之室</p>
+  <h2>藏書閣</h2>
+  <p class="lib-count" id="lib-count"></p>
+  <div id="lib-list"></div>
+  <div class="row"><button class="primary" type="button" data-close>闔上書卷</button></div>
 </dialog>
 
 <dialog id="dlg-help" class="dlg help">

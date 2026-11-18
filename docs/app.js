@@ -326,6 +326,69 @@
   }
 
   // ---------- 操作 ----------
+  // ---------- 藏書閣 ----------
+  const LIB_KEY = 'linglan.library';
+  let libList = null;
+  function lib() {
+    if (!libList) {
+      try { libList = JSON.parse(localStorage.getItem(LIB_KEY) || '[]'); } catch (e) { libList = []; }
+      if (!Array.isArray(libList)) libList = [];
+      // 舊進度：過關過的季節補上遺訓，玩過的人補上五位要角
+      const done = cleared();
+      D.SEASONS.forEach(se => { if (done.includes(se.id) && !libList.includes('d:' + se.id)) libList.push('d:' + se.id); });
+      if (done.includes('year') && !libList.includes('d:year')) libList.push('d:year');
+      if (done.length || load()) D.ELEMENTS.forEach(el => { if (!libList.includes('m:' + el)) libList.push('m:' + el); });
+    }
+    return libList;
+  }
+  // 收錄一張卡；第一次收錄回傳 true
+  function collect(id) {
+    const list = lib();
+    if (list.includes(id)) return false;
+    list.push(id);
+    try { localStorage.setItem(LIB_KEY, JSON.stringify(list)); } catch (e) { /* 略過 */ }
+    return true;
+  }
+  function libEntries() {
+    const ev = kind => Object.keys(D.EVENTS).filter(id => D.EVENTS[id].kind === kind).map(id => {
+      const e = D.EVENTS[id];
+      return { id: 'e:' + id, name: e.name, quote: e.quote, source: kind === 'carry' ? D.SOURCES.carry : D.SOURCES.event, scene: e.omen, body: fill(e.why),
+        lock: kind === 'carry' ? '在一整年模式中化解一次就能收錄' : '化解一次就能收錄' };
+    });
+    return [
+      { title: '五官', note: '身體裡的五位要角', items: D.ELEMENTS.map(el => ({ id: 'm:' + el, name: `${M(el).title}・${M(el).organ}`, quote: M(el).line, source: D.SOURCES.minister, body: M(el).role, lock: '即位就能收錄' })) },
+      { title: '五志', note: '情緒失衡時的徵兆', items: ev('emotion') },
+      { title: '六氣', note: '天候變化時的徵兆', items: ev('weather') },
+      { title: '四時遺訓', note: '每一季過關時收錄', items: D.SEASONS.map(se => ({ id: 'd:' + se.id, name: `${se.name}三月`, quote: se.decree, source: se.decreeSource, body: se.gloss, lock: `${se.name}天過關就能收錄` }))
+        .concat([{ id: 'd:year', name: '四時陰陽', quote: D.TEXT.yearDecree, source: D.SOURCES.decree, body: D.TEXT.yearGloss, lock: '一整年過關就能收錄' }]) },
+      { title: '季節牽連', note: '一整年模式中，前一季沒照顧好的後果', items: ev('carry') }
+    ];
+  }
+  function showLibrary() {
+    ['dlg-menu', 'dlg-over'].forEach(closeDlg);
+    const have = lib();
+    const groups = libEntries();
+    const all = groups.reduce((n, g) => n + g.items.length, 0);
+    const got = groups.reduce((n, g) => n + g.items.filter(x => have.includes(x.id)).length, 0);
+    $('lib-count').textContent = `已收錄 ${got} / ${all} 卷`;
+    $('lib-list').innerHTML = groups.map(g => `<section class="lib-group"><h3>${g.title}<small>${g.note}</small></h3>`
+      + g.items.map(x => have.includes(x.id)
+        ? `<details class="lib-item"><summary><b>${x.name}</b><span>${x.quote.length > 14 ? x.quote.slice(0, 14) + '……' : x.quote}</span></summary>`
+          + (x.scene ? `<p class="lib-scene">${x.scene}</p>` : '')
+          + `<p>${x.body}</p><blockquote>${x.quote}<cite>${x.source}</cite></blockquote></details>`
+        : `<div class="lib-item locked"><b>？？？</b><span>${x.lock}</span></div>`).join('')
+      + '</section>').join('');
+    openDlg('dlg-library');
+  }
+  // 依紀錄收錄化解過的事，第一次收錄時提示
+  function collectFrom(log) {
+    const fresh = [];
+    log.forEach(e => {
+      if ((e.type === 'resolve' || e.type === 'dispel') && collect('e:' + e.id)) fresh.push(D.EVENTS[e.id].name);
+    });
+    if (fresh.length) toast(`藏書閣收錄了「${fresh.join('」「')}」`);
+  }
+
   function onPlay(i) {
     if (!game) return;
     const check = E.canPlay(game, i);
@@ -334,6 +397,7 @@
     const r = E.playCard(game, i);
     game = r.state;
     save();
+    collectFrom(r.log);
     render();
     floatDiff(before, game);
     $('narration').innerHTML = visible(r.log).map(e => describe(e, before)).filter(x => x.text)
@@ -368,6 +432,7 @@
     if (r.log[0].type === 'denied') { toast(r.log[0].reason); return; }
     game = r.state;
     save();
+    collectFrom(r.log);
     showSummary(before, r.log);
   }
 
@@ -418,6 +483,7 @@
     const r = E.newGame(newSeed(), mode || chosenMode(), pick === YEAR ? 0 : pick, pick === YEAR);
     game = r.state;
     save();
+    D.ELEMENTS.forEach(el => collect('m:' + el));
     try { const gc = window.goatcounter; if (gc && gc.count) gc.count({ path: 'linglan-play', title: '靈蘭即位', event: true, no_session: true }); } catch (e) { /* 略過 */ }
     showGame();
     $('narration').innerHTML = `<span>${fill(season(game).intro)}</span>` + visible(r.log).map(e => describe(e, game)).filter(x => x.text).map(x => `<span class="${x.tone}">${x.text}</span>`).join('');
@@ -592,6 +658,7 @@
     const notes = [];
     if (o.win) {
       if (game.year) markYear(); else markCleared(game.season);
+      if (collect(game.year ? 'd:year' : 'd:' + season(game).id)) notes.push('藏書閣收錄了這一季的遺訓。');
       if (nextMode && !unlocked()) flag(UNLOCK_KEY, true);
       if (nextSeason !== null) notes.push(`已解鎖${D.SEASONS[nextSeason].name}季。`);
       if (nextMode) notes.push(`可以挑戰「${D.MODES[nextMode].name}」難度。`);
@@ -623,6 +690,8 @@
     });
     $('btn-continue').addEventListener('click', () => { game = load(); if (game) { $('narration').textContent = ''; showGame(); } else showTitle(); });
     $('btn-export').addEventListener('click', exportSave);
+    $('btn-library').addEventListener('click', showLibrary);
+    $('m-library').addEventListener('click', showLibrary);
     $('btn-import').addEventListener('click', () => $('file-import').click());
     $('file-import').addEventListener('change', ev => { const f = ev.target.files[0]; if (f) importSave(f); ev.target.value = ''; });
     $('btn-lamp').addEventListener('click', onLamp);
