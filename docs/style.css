@@ -143,3 +143,49 @@ footer p{margin:0 0 6px}
 }
 @media(min-width:700px){.kingdom{margin-top:18px}.card{min-height:160px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* ---- 第二版：引導與說明 ---- */
+.goal{margin:8px 0 0;font-size:13px;color:var(--ink);line-height:1.5}
+.goal b{display:inline-block;margin-right:8px;padding:0 8px;border-radius:6px;background:var(--stone);color:var(--paper2);font-weight:400;font-size:12px;letter-spacing:2px}
+button.season{background:transparent;min-height:32px;cursor:pointer}
+button.region{display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
+.region .head,.region .organ,.region .bar,.region .val{display:flex}
+.region .head{justify-content:space-between}
+.region .bar{display:grid}
+.region .organ{font-size:12px;color:var(--mute);letter-spacing:2px;line-height:1.4}
+.ev .tap{font-size:11px;color:var(--mute);border-left:1px solid var(--line);padding-left:6px;margin-left:2px}
+.narration span{display:block}
+.narration .good,.sum .good,.narration .up,.sum .up{color:var(--wood)}
+.narration .bad,.sum .bad,.narration .down,.sum .down{color:var(--fire)}
+.card .badges{display:flex;flex-direction:column;gap:3px;margin-top:6px}
+.badge{display:block;font-size:11px;line-height:1.35;border-radius:5px;padding:2px 4px;text-align:center}
+.badge.fix{background:var(--wood);color:#fff}
+.badge.shun{border:1px solid var(--wood);color:var(--wood)}
+.badge.ni{border:1px solid var(--fire);color:var(--fire)}
+.card.fixes:not(:disabled){box-shadow:0 0 0 2px var(--wood),0 2px 8px rgba(46,107,58,.25)}
+.card .fx .up{color:var(--wood)}.card .fx .down{color:var(--fire)}
+.btn-pulse,.primary.nudge{animation:nudge 1.6s ease-in-out infinite}
+@keyframes nudge{0%,100%{box-shadow:0 0 0 0 rgba(78,94,95,.5)}50%{box-shadow:0 0 0 6px rgba(78,94,95,0)}}
+.quote{font-family:var(--serif);color:var(--gold);text-align:center;font-size:15px;margin:10px 0 0}
+.sum{list-style:none;margin:6px 0 0;padding:0;font-size:15px;line-height:1.6;min-height:3em;cursor:pointer}
+.sum li{padding:5px 0;border-bottom:1px dashed var(--line)}
+.sum li.sep{border-bottom:1px solid var(--gold);padding:2px 0;margin-bottom:4px}
+.rests button{position:relative}
+.rests em{display:none;position:absolute;right:12px;top:12px;font-style:normal;font-size:12px;background:var(--wood);color:#fff;border-radius:6px;padding:0 6px}
+.rests button.right{border-color:var(--wood);border-width:2px}
+.rests button.right em{display:block}
+.ranks{font-size:12px;color:var(--mute);text-align:center;margin:0}
+.decree cite{display:block;margin-top:6px;font-size:13px;font-style:normal;color:var(--mute);text-align:right}
+.reveal{margin:14px 0 0;font-family:var(--serif);font-size:15px;line-height:1.9;text-align:center;color:var(--stone)}
+.link{background:none;border:0;color:var(--mute);text-decoration:underline;min-height:44px;padding:0 8px;font-size:14px}
+
+/* 天師導覽 */
+.coach{position:fixed;inset:0;z-index:40}
+.coach-on{position:relative;z-index:41;pointer-events:none;box-shadow:0 0 0 4px var(--gold),0 0 0 9999px rgba(58,54,49,.55)!important;border-radius:14px}
+.coach-bubble{position:fixed;left:50%;transform:translateX(-50%);width:min(420px,calc(100vw - 24px));z-index:42;background:var(--paper2);border:1px solid var(--gold);border-radius:16px;padding:14px 16px 10px;box-shadow:0 8px 28px rgba(0,0,0,.25)}
+.coach-bubble.at-bottom{bottom:max(16px,env(safe-area-inset-bottom))}
+.coach-bubble.at-top{top:max(16px,env(safe-area-inset-top))}
+.coach-who{margin:0;font-size:12px;letter-spacing:4px;color:var(--gold)}
+.coach-text{margin:4px 0 8px;font-family:var(--serif);font-size:16px;line-height:1.9}
+.coach-foot{display:flex;align-items:center;gap:8px}
+.coach-foot span{flex:1;font-size:12px;color:var(--mute)}

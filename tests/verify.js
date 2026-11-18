@@ -51,16 +51,34 @@ test('資料：五行生剋各成一圈', () => {
   });
 });
 
-test('資料：網站文字不含劇透字眼與五辛', () => {
+test('資料：對外的地方（首頁、頁首、README）不提題材', () => {
+  const fs = require('fs'), path = require('path');
+  const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
+  const head = html.slice(0, html.indexOf('</head>'));
+  const titleView = html.slice(html.indexOf('<section id="title-view"'), html.indexOf('</section>'));
+  const readme = fs.readFileSync(path.join(__dirname, '../README.md'), 'utf8');
+  const banned = ['黃帝', '內經', '臟腑', '穴位', '中醫', '岐伯', '經絡', '經脈', '肝', '脾', '肺', '腎'];
+  [['頁首', head], ['首頁', titleView], ['README', readme]].forEach(([name, text]) => {
+    assert.ok(text.length > 50, name + ' 沒有讀到內容');
+    banned.forEach(w => assert.ok(!text.includes(w), name + ' 出現「' + w + '」'));
+  });
+});
+
+test('資料：全站不出現五辛', () => {
   const fs = require('fs'), path = require('path');
   const dir = path.join(__dirname, '../docs');
-  const banned = ['黃帝', '內經', '臟腑', '穴位', '中醫', '岐伯', '經絡', '經脈', '心臟', '肝', '脾', '肺', '腎', '膽', '膀胱', '三焦', '蔥', '蒜', '韭', '薤', '興渠'];
   const files = fs.readdirSync(dir).filter(f => /\.(html|js|css)$/.test(f)).map(f => path.join(dir, f));
   files.push(path.join(__dirname, '../README.md'));
   files.forEach(f => {
     const text = fs.readFileSync(f, 'utf8');
-    banned.forEach(w => assert.ok(!text.includes(w), path.basename(f) + ' 出現「' + w + '」'));
+    ['蔥', '蒜', '韭', '薤', '興渠'].forEach(w => assert.ok(!text.includes(w), path.basename(f) + ' 出現「' + w + '」'));
   });
+});
+
+test('資料：每位要角與事件都有公開的說明與原文', () => {
+  D.ELEMENTS.forEach(el => { const m = D.MINISTERS[el]; assert.ok(m.organ && m.line, el); });
+  Object.values(D.EVENTS).forEach(e => assert.ok(e.omen && e.why && e.quote, e.name));
+  assert.ok(SPRING.decreeSource && SPRING.restQuote && SPRING.tagNote);
 });
 
 // ---------- 開局 ----------
