@@ -222,3 +222,18 @@ button.region{display:block;width:100%;text-align:left;font:inherit;color:var(--
 .lib-item blockquote{margin:8px 12px 12px;padding:8px 10px;border-left:3px solid var(--gold);background:#efe5d0;font-family:var(--serif);font-size:15px;line-height:1.9}
 .lib-item blockquote cite{display:block;font-style:normal;font-size:12px;color:var(--mute);text-align:right;margin-top:4px}
 .lib-item.locked{display:flex;flex-direction:column;gap:2px;padding:10px 12px;background:transparent;border-style:dashed;opacity:.7}
+
+/* ---- 正式插畫 ---- */
+/* 首頁主視覺：直式螢幕用直幅，橫式螢幕用橫幅（畫在左側，右側留白） */
+body.title-mode::before{content:"";position:fixed;inset:0;z-index:-1;background:var(--paper) url(img/hero-tall.jpg) center bottom/cover no-repeat}
+@media(min-aspect-ratio:1/1){body.title-mode::before{background-image:url(img/hero-wide.jpg);background-position:left center}}
+body.title-mode{background:transparent}
+body.title-mode footer{border-top-color:transparent}
+/* 王國地圖 */
+.kingdom{background:var(--paper) url(img/map.jpg) center/cover no-repeat}
+.kingdom .land{display:none}
+.region{background:rgba(251,243,228,.88)}
+body.title-mode .title-view p,body.title-mode .backup summary{text-shadow:0 0 6px var(--paper),0 0 12px var(--paper),0 0 18px var(--paper)}
+@media(min-aspect-ratio:1/1) and (min-width:900px){
+  body.title-mode main,body.title-mode footer{margin-left:auto;margin-right:max(6vw,24px)}
+}

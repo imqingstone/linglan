@@ -547,6 +547,7 @@
     renderModes();
     $('title-view').hidden = false;
     $('game-view').hidden = true;
+    document.body.classList.add('title-mode');
     window.scrollTo(0, 0);
   }
   const SEASON_NAMES = ['春', '夏', '秋', '冬', '年'];
@@ -592,6 +593,7 @@
   }
   function endTourQuiet() { clearTarget(); $('coach').hidden = true; }
   function showGame() {
+    document.body.classList.remove('title-mode');
     $('title-view').hidden = true;
     $('game-view').hidden = false;
     render();
