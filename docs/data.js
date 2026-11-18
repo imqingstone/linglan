@@ -40,6 +40,7 @@ const LL_DATA = {
     RETURN_AT: 3,            // 告假後回朝
     DANGER_LEAVES: 2,        // 同時告假人數達此即國危
     GUARANTEE_FIX: false,    // 每旬開始保證手上有能化解徵兆的牌
+    FIX_HINT: 'none',        // 牌上的「可化解」標記：none 不標；read 看過該徵兆的解說後才標
     DE_OMEN: 3,
     DE_WOE: 1,
     DE_DISPEL: 3,
@@ -61,8 +62,8 @@ const LL_DATA = {
 
   // 難度：rules 會覆蓋 RULES 的同名數值。第一次玩一律是新手，過關後解鎖正常。
   MODES: {
-    easy: { name: '新手', desc: '氣比較充足，禍患比較輕，每天都會有能化解徵兆的牌。適合第一次治理。', rules: { QI_START: 5, WOE_DAMAGE: 2, GUARANTEE_FIX: true } },
-    normal: { name: '正常', desc: '照古人的標準治理王國。', rules: {} }
+    easy: { name: '新手', desc: '氣比較充足，禍患比較輕，每天都會有能化解徵兆的牌；看過天師的解說，牌上就會標出該打哪張。適合第一次治理。', rules: { QI_START: 5, WOE_DAMAGE: 2, GUARANTEE_FIX: true, FIX_HINT: 'read' } },
+    normal: { name: '正常', desc: '照古人的標準治理王國。牌上不再標出可化解的牌，要靠自己讀懂徵兆。', rules: {} }
   },
   MODE_ORDER: ['easy', 'normal'],
 

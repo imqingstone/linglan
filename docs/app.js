@@ -86,6 +86,27 @@
   function closeDlg(id) { const d = $(id); if (d.open) d.close(); }
   const season = s => D.SEASONS[s.season];
   const RR = () => E.rulesOf(game);
+  // 看過解說的徵兆（每局分開記），新手模式要看過才在牌上標「可化解」
+  const READ_KEY = 'linglan.read';
+  let readList = null;
+  function readSet() {
+    if (!readList) { try { readList = JSON.parse(localStorage.getItem(READ_KEY) || '[]'); } catch (e) { readList = []; } if (!Array.isArray(readList)) readList = []; }
+    return readList;
+  }
+  const readKey = (s, id) => `${s.seed}:${s.season}:${id}`;
+  const isRead = (s, id) => readSet().includes(readKey(s, id));
+  function markRead(s, id) {
+    const list = readSet(), k = readKey(s, id);
+    if (list.includes(k)) return;
+    list.push(k);
+    while (list.length > 60) list.shift();
+    try { localStorage.setItem(READ_KEY, JSON.stringify(list)); } catch (e) { /* 略過 */ }
+  }
+  // 這件事在牌上要不要標「可化解」
+  function hinted(s, id) {
+    const h = E.rulesOf(s).FIX_HINT;
+    return h === 'always' || (h === 'read' && isRead(s, id));
+  }
   const unlocked = () => flag(UNLOCK_KEY);
   function chosenMode() {
     if (!unlocked()) return D.MODE_ORDER[0];
@@ -157,7 +178,7 @@
       const def = D.EVENTS[e.id];
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'ev' + (e.stage === 'woe' ? ' woe' : '');
+      b.className = 'ev' + (e.stage === 'woe' ? ' woe' : '') + (E.rulesOf(s).FIX_HINT === 'read' && !isRead(s, e.id) ? ' unread' : '');
       b.dataset.el = def.el;
       b.innerHTML = `<small>${e.stage === 'woe' ? '禍患' : '徵兆'}</small>${def.name}<span class="tap">看解說</span>`;
       b.addEventListener('click', () => showEvent(i));
@@ -193,7 +214,7 @@
       const c = D.CARDS[id];
       const can = E.canPlay(s, i);
       const t = timing(s, id);
-      const ev = s.events.find(e => E.matches(id, e.id));
+      const ev = s.events.find(e => E.matches(id, e.id) && hinted(s, e.id));
       const badges = [];
       if (ev) badges.push('<span class="badge fix">可化解</span>');
       if (t === 'shun') badges.push('<span class="badge shun">順時</span>');
@@ -225,7 +246,7 @@
     const se = season(s);
     switch (e.type) {
       case 'turn': return { text: `${D.SEASONS[e.season].terms[e.turn - 1]}，第 ${e.turn} 旬開始。`, tone: '' };
-      case 'omen': return { text: `早上傳來徵兆：「${D.EVENTS[e.id].name}」。點開看天師的解說。`, tone: 'bad' };
+      case 'omen': return { text: `早上傳來徵兆：「${D.EVENTS[e.id].name}」。${E.rulesOf(s).FIX_HINT === 'read' ? '點開看天師的解說，能化解的牌就會標出來。' : '點開看天師的解說，想想該派誰處理。'}`, tone: 'bad' };
       case 'play': return { text: `下令：${D.CARDS[e.card].name}。`, tone: '' };
       case 'shun': return { text: `這張屬「${se.tag}」，順應${se.name}天。`, tone: 'good' };
       case 'ni': return { text: `這張屬「${D.CARDS[e.card].tag}」，與${se.name}天的「${se.tag}」相逆。`, tone: 'bad' };
@@ -384,7 +405,7 @@
     { target: 'kingdom', text: '每位都有「氣」，從 0 到 10。在 4 到 8 之間最安穩，太低會生病告假，太高也會出問題。點人物可以看詳細說明。' },
     { target: 'goal', text: () => `目標是平安度過 ${R.TURNS} 旬。大臣的氣掉到 ${R.LEAVE_AT} 以下就會告假；兩位同時告假，或君主的氣歸零，王國就撐不下去了。` },
     { target: 'events', text: () => `早上傳來的徵兆，是身體出狀況前的小訊號。點開看我的解說。當天化解德最高；拖過一天就成了禍患，每旬扣 ${RR().WOE_DAMAGE} 點氣。` },
-    { target: 'hand', text: '點一張牌，就是下一道令。標著「可化解」的牌能處理眼前的徵兆；「順時」的牌順著季節，有額外好處；「逆時」的牌會傷人，能免則免。' },
+    { target: 'hand', text: () => `點一張牌，就是下一道令。${RR().FIX_HINT === 'read' ? '看過徵兆的解說後，能處理它的牌會標上「可化解」。' : '要自己判斷哪張牌能處理徵兆。'}「順時」的牌順著季節，有額外好處；「逆時」的牌會傷人，能免則免。` },
     { target: 'tokens', text: '每旬能下的令有限。君主的氣越高，令就越多，所以睡眠很重要。' },
     { target: 'btn-sleep', text: '令用完就就寢。選對作息，君主隔天精神更好。「挑燈」能多一道令，但很傷身，非不得已別用。好了，開始治理吧。' }
   ];
@@ -496,6 +517,8 @@
     $('ev-woe').textContent = `已經拖成禍患：每旬結算時 ${title(def.el)} −${RR().WOE_DAMAGE}，直到化解為止。現在化解，德只有 +${RR().DE_WOE}。`;
     $('ev-why').textContent = fill(def.why);
     $('ev-quote').textContent = `「${def.quote}」`;
+    markRead(game, e.id);
+    render();
     openDlg('dlg-event');
   }
   function showMinister(el) {

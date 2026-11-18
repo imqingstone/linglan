@@ -392,6 +392,12 @@ test('難度：新手開局氣較多、禍患較輕，正常不受影響', () =>
   assert.strictEqual(E.endTurn(s, 'early-late').state.qi.木, 5 - E.rulesOf(easy).WOE_DAMAGE);
 });
 
+test('難度：可化解標記的設定只能是 none、read 或 always；正常難度不標', () => {
+  D.MODE_ORDER.forEach(m => assert.ok(['none', 'read', 'always'].includes(E.rulesOf({ mode: m }).FIX_HINT), m));
+  assert.strictEqual(E.rulesOf({ mode: 'normal' }).FIX_HINT, 'none');
+  assert.strictEqual(E.rulesOf({ mode: 'easy' }).FIX_HINT, 'read');
+});
+
 test('難度：不認得的難度視為正常；舊存檔沒有難度欄位也能讀', () => {
   assert.strictEqual(E.newGame(3, 'bogus').state.mode, 'normal');
   const old = clone(E.newGame(3).state); delete old.mode;

@@ -203,3 +203,5 @@ button.region{display:block;width:100%;text-align:left;font:inherit;color:var(--
 .seasons button small{font-size:11px;color:var(--mute);letter-spacing:1px}
 .seasons button[aria-checked="true"]{border:2px solid var(--c,var(--stone));box-shadow:0 2px 8px rgba(78,94,95,.15)}
 .seasons button:disabled{opacity:.45;cursor:not-allowed}
+.ev.unread{animation:nudge 1.6s ease-in-out infinite;border-style:solid}
+.ev.unread .tap{color:var(--gold);font-weight:700}
