@@ -39,6 +39,7 @@ const LL_DATA = {
     LEAVE_AT: 2,             // 大臣的氣降到此以下（虛）就告假
     RETURN_AT: 3,            // 告假後回朝
     DANGER_LEAVES: 2,        // 同時告假人數達此即國危
+    GUARANTEE_FIX: false,    // 每旬開始保證手上有能化解徵兆的牌
     DE_OMEN: 3,
     DE_WOE: 1,
     DE_DISPEL: 3,
@@ -60,7 +61,7 @@ const LL_DATA = {
 
   // 難度：rules 會覆蓋 RULES 的同名數值。第一次玩一律是新手，過關後解鎖正常。
   MODES: {
-    easy: { name: '新手', desc: '氣比較充足，禍患比較輕。適合第一次治理。', rules: { QI_START: 5, WOE_DAMAGE: 2 } },
+    easy: { name: '新手', desc: '氣比較充足，禍患比較輕，每天都會有能化解徵兆的牌。適合第一次治理。', rules: { QI_START: 5, WOE_DAMAGE: 2, GUARANTEE_FIX: true } },
     normal: { name: '正常', desc: '照古人的標準治理王國。', rules: {} }
   },
   MODE_ORDER: ['easy', 'normal'],

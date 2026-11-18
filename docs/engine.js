@@ -79,6 +79,25 @@ const LL_ENGINE = (function (D) {
     return true;
   }
 
+  // 新手模式：有徵兆而手上沒有能化解的牌時，從牌庫（不夠再從棄牌堆）換一張進來。
+  // 換出去的牌放回被取牌的位置，牌數守恆。
+  function guaranteeFix(s, log) {
+    const omens = s.events.filter(e => e.stage === 'omen');
+    if (!omens.length) return;
+    if (s.hand.some(id => omens.some(e => matches(id, e.id)))) return;
+    const target = omens[omens.length - 1];
+    for (const pile of ['deck', 'discard']) {
+      const at = s[pile].findIndex(id => matches(id, target.id));
+      if (at === -1) continue;
+      const out = Math.floor(rand(s) * s.hand.length);
+      const incoming = s[pile][at];
+      s[pile][at] = s.hand[out];
+      s.hand[out] = incoming;
+      log.push({ type: 'aid', card: incoming, id: target.id });
+      return;
+    }
+  }
+
   // 一旬開始：晨報、補牌、發令
   function startTurn(s, log) {
     const R = rulesOf(s);
@@ -93,6 +112,7 @@ const LL_ENGINE = (function (D) {
       log.push({ type: 'omen', id });
     }
     while (s.hand.length < R.HAND && drawOne(s, log)) { /* 補牌 */ }
+    if (R.GUARANTEE_FIX) guaranteeFix(s, log);
     s.tokens = tokensFor(s.qi[D.SOVEREIGN], s.mode);
     log.push({ type: 'tokens', n: s.tokens });
   }

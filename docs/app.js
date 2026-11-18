@@ -214,6 +214,7 @@
       case 'woe': return { text: `「${D.EVENTS[e.id].name}」沒有當天處理，成了禍患：之後每旬 ${title(D.EVENTS[e.id].el)} −${RR().WOE_DAMAGE}。`, tone: 'bad' };
       case 'leave': return e.on ? { text: `${who(e.el)}撐不住，告假了。他的牌暫時不能用。`, tone: 'bad' } : { text: `${title(e.el)}恢復元氣，回朝了。`, tone: 'good' };
       case 'reshuffle': return { text: '用過的牌洗回牌庫。', tone: '' };
+      case 'aid': return { text: `天師替陛下備好了「${D.CARDS[e.card].name}」，可以化解「${D.EVENTS[e.id].name}」。`, tone: 'good' };
       case 'qi': {
         const r = String(e.reason);
         const w = title(e.el);

@@ -369,6 +369,29 @@ test('難度：不認得的難度視為正常；舊存檔沒有難度欄位也�
   assert.ok(!E.isValidState(Object.assign(clone(old), { mode: 'bogus' })));
 });
 
+test('新手：每旬開始，有徵兆就一定有能化解的牌；正常不保證', () => {
+  let easyMiss = 0, normalMiss = 0, aids = 0;
+  const check = (s, mode) => {
+    const omens = s.events.filter(e => e.stage === 'omen');
+    if (omens.length && !s.hand.some(id => omens.some(e => E.matches(id, e.id)))) { if (mode === 'easy') easyMiss++; else normalMiss++; }
+  };
+  for (let seed = 1; seed <= 300; seed++) {
+    for (const mode of ['easy', 'normal']) {
+      let r = E.newGame(seed, mode); check(r.state, mode);
+      let s = r.state;
+      while (!s.over) {
+        r = E.endTurn(s, D.SEASONS[0].rest);
+        aids += r.log.filter(e => e.type === 'aid').length;
+        s = r.state;
+        if (!s.over) check(s, mode);
+      }
+    }
+  }
+  assert.strictEqual(easyMiss, 0);
+  assert.ok(normalMiss > 0, '正常難度應該維持隨機');
+  assert.ok(aids > 0);
+});
+
 // ---------- 存檔 ----------
 test('存檔驗證', () => {
   const s = E.newGame(5).state;
