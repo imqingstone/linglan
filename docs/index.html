@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-Hant-TW"><head><meta charset="utf-8"><meta name="format-detection" content="telephone=no"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6e8cf"><meta name="description" content="靈蘭，一款王國經營小品。帶著四位大臣，讓王國平安度過四季。不用登入，進度只保存在你的瀏覽器。"><title>靈蘭・陛下，該睡了</title><link rel="stylesheet" href="style.css"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="apple-mobile-web-app-title" content="靈蘭"><link rel="icon" type="image/png" href="icon-192.png"></head>
+<body>
+<a class="skip" href="#main">跳到主要內容</a>
+<main id="main" tabindex="-1">
+
+<!-- 首頁 -->
+<section id="title-view" class="title-view">
+  <p class="kicker">王國經營小品</p>
+  <h1>靈蘭</h1>
+  <p class="subtitle">陛下，該睡了</p>
+  <p class="lead"><span>你是剛即位的君主，</span><span>帶著四位大臣，</span><span>讓王國平安度過這個春天。</span></p>
+  <div class="title-actions">
+    <button id="btn-continue" class="primary" type="button" hidden>繼續</button>
+    <button id="btn-new" class="primary" type="button">即位</button>
+    <button id="btn-help" class="ghost" type="button">怎麼玩</button>
+  </div>
+  <details class="backup">
+    <summary>進度備份</summary>
+    <p>進度只保存在這個瀏覽器。換手機或清除瀏覽器資料前，請先匯出備份。</p>
+    <div class="row"><button id="btn-export" class="ghost" type="button">匯出進度</button><button id="btn-import" class="ghost" type="button">匯入進度</button></div>
+    <input id="file-import" type="file" accept="application/json,.json" hidden>
+  </details>
+</section>
+
+<!-- 遊戲 -->
+<section id="game-view" class="game-view" hidden>
+  <header class="topbar">
+    <div class="when"><b id="term">立春</b><span id="turn-no">第 1 旬・共 6 旬</span></div>
+    <div class="season" id="season-tag" title="這個季節的時令">春・生</div>
+    <div class="de"><span>德</span><b id="de">0</b></div>
+    <button id="btn-menu" class="icon-btn" type="button" aria-label="選單">☰</button>
+  </header>
+
+  <div class="kingdom" id="kingdom" aria-label="王國">
+    <svg class="land" viewBox="0 0 300 300" aria-hidden="true" preserveAspectRatio="none">
+      <path d="M0 220 Q40 190 80 205 T160 196 T240 210 T300 198" />
+      <path d="M0 248 Q55 228 110 240 T210 234 T300 244" />
+      <path d="M18 70 L52 40 L78 62 L104 34 L140 70" />
+      <path d="M170 64 L196 44 L214 58 L240 30 L282 66" />
+      <path class="river" d="M150 0 C140 60 168 100 150 150 S130 240 150 300" />
+    </svg>
+    <div class="region" data-el="火"></div>
+    <div class="region" data-el="木"></div>
+    <div class="region" data-el="土"></div>
+    <div class="region" data-el="金"></div>
+    <div class="region" data-el="水"></div>
+  </div>
+
+  <div class="events" id="events" aria-label="徵兆與禍患"></div>
+
+  <p class="narration" id="narration" aria-live="polite"></p>
+
+  <div class="actions">
+    <div class="tokens" id="tokens" aria-label="令"></div>
+    <button id="btn-lamp" class="ghost" type="button">挑燈</button>
+    <button id="btn-sleep" class="primary" type="button">就寢</button>
+  </div>
+
+  <div class="hand" id="hand" aria-label="手牌"></div>
+</section>
+</main>
+
+<footer>
+  <p><span class="seg">本遊戲純屬文化趣味，</span><span class="seg">不構成任何健康建議。</span></p>
+  <small id="usage" class="usage" hidden></small>
+  <a class="home-link" href="https://imqingstone.github.io/"><img src="qingstone.png" alt="" width="28" height="28"><span>回到青石驛</span></a>
+  <small class="copyright">© 2026 靈蘭・古文屬公有領域，其餘內容為原創，未經同意請勿轉載</small>
+</footer>
+
+<!-- 對話框 -->
+<dialog id="dlg-event" class="dlg">
+  <p class="dlg-kind" id="ev-kind"></p>
+  <h2 id="ev-name"></h2>
+  <p id="ev-omen" class="omen-text"></p>
+  <p id="ev-woe" class="woe-text" hidden></p>
+  <p id="ev-hint" class="hint" hidden></p>
+  <div class="row"><button id="btn-ask" class="ghost" type="button">請教天師</button><button class="primary" type="button" data-close>知道了</button></div>
+</dialog>
+
+<dialog id="dlg-sleep" class="dlg">
+  <p class="dlg-kind">天師</p>
+  <h2>陛下，該睡了。</h2>
+  <p id="sleep-note" class="muted"></p>
+  <div class="rests" id="rests"></div>
+  <div class="row"><button class="ghost" type="button" data-close>再處理一下</button></div>
+</dialog>
+
+<dialog id="dlg-over" class="dlg">
+  <p class="dlg-kind" id="over-kind"></p>
+  <h2 id="over-title"></h2>
+  <p id="over-words"></p>
+  <dl class="score" id="over-score"></dl>
+  <blockquote id="over-decree" class="decree" hidden></blockquote>
+  <div class="row"><button id="btn-home" class="ghost" type="button">回到首頁</button><button id="btn-again" class="primary" type="button">再來一次</button></div>
+</dialog>
+
+<dialog id="dlg-menu" class="dlg">
+  <h2>選單</h2>
+  <div class="menu">
+    <button id="m-help" class="ghost" type="button">怎麼玩</button>
+    <button id="m-export" class="ghost" type="button">匯出進度</button>
+    <button id="m-restart" class="ghost" type="button">重新即位</button>
+    <button id="m-home" class="ghost" type="button">回到首頁</button>
+  </div>
+  <div class="row"><button class="primary" type="button" data-close>繼續</button></div>
+</dialog>
+
+<dialog id="dlg-help" class="dlg help">
+  <h2>怎麼玩</h2>
+  <ol>
+    <li><b>五位要角</b>：你是君主，底下有將軍、司倉、宰相、大匠。每位都有 0–10 的「氣」，太低會出事，太高也不好。</li>
+    <li><b>下令</b>：每一旬可以下幾道令，點一張牌就是一道令。君主的精神越好，能下的令越多。</li>
+    <li><b>時令</b>：每張牌屬於生、長、收、藏其中之一。順著季節做事，事半功倍；逆著季節，就會有人吃虧。</li>
+    <li><b>徵兆</b>：每旬早上可能傳來一則消息。點開看看，想想該派誰處理。當天就處理，功德最大；拖到隔天，就成了每旬都會造成損傷的禍患。不知道怎麼辦，可以請教天師。</li>
+    <li><b>就寢</b>：一天的最後要選擇作息。睡對時間，君主隔天精神更好。「挑燈」可以多下一道令，但很傷神。</li>
+    <li><b>彼此牽動</b>：誰的氣到 <span data-r="GEN_AT">8</span> 以上，會帶動下一位（將軍、君主、司倉、宰相、大匠，再回到將軍）。氣滿 <span data-r="OVER_AT">10</span> 則會壓制另一位，自己也會耗損。</li>
+    <li><b>結束</b>：大臣的氣降到 <span data-r="LEAVE_AT">2</span> 以下會告假，他的牌就不能用。君主的氣耗盡，或兩位大臣同時告假，王國就撐不下去了。平安度過 <span data-r="TURNS">6</span> 旬就過關。</li>
+  </ol>
+  <div class="row"><button class="primary" type="button" data-close>開始治理</button></div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="data.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+<script data-goatcounter="https://imqingstone.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body></html>
