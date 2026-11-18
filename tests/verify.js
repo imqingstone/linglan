@@ -35,12 +35,43 @@ const typesOf = log => log.map(e => e.type);
 const totalCards = s => s.deck.length + s.hand.length + s.discard.length;
 
 // ---------- 資料 ----------
-test('資料：牌組與事件都存在', () => {
-  SPRING.deck.forEach(id => assert.ok(D.CARDS[id], id));
-  SPRING.events.forEach(id => assert.ok(D.EVENTS[id], id));
-  assert.strictEqual(SPRING.deck.length, 15);
-  assert.strictEqual(SPRING.events.length, 6);
-  assert.strictEqual(SPRING.terms.length, R.TURNS);
+test('資料：每一季的牌組、事件、節氣與文字都齊全', () => {
+  D.SEASONS.forEach(se => {
+    se.deck.forEach(id => assert.ok(D.CARDS[id], se.name + ' ' + id));
+    se.events.forEach(id => assert.ok(D.EVENTS[id], se.name + ' ' + id));
+    assert.strictEqual(new Set(se.deck).size, se.deck.length, se.name + ' 牌組重複');
+    assert.ok(se.deck.length >= R.HAND * 3, se.name);
+    assert.ok(se.events.length >= R.EVENT_TURNS, se.name);
+    assert.strictEqual(se.terms.length, R.TURNS, se.name);
+    assert.ok(D.RESTS[se.rest] && D.OPPOSITE[se.tag] && D.ELEMENTS.includes(se.el), se.name);
+    assert.ok(se.decree && se.decreeSource && se.restQuote && se.tagNote && se.intro, se.name);
+    // 每件事件在這一季的牌組裡都至少有一張能化解
+    se.events.forEach(id => assert.ok(se.deck.some(c => E.matches(c, id)), se.name + ' 無法化解 ' + id));
+  });
+});
+
+test('季節：夏天規則覆蓋春天，難度規則再覆蓋季節', () => {
+  const sp = E.newGame(1, 'normal', 0).state, su = E.newGame(1, 'normal', 1).state, sue = E.newGame(1, 'easy', 1).state;
+  assert.strictEqual(su.season, 1); assert.strictEqual(E.newGame(1, 'normal', 99).state.season, 0);
+  assert.strictEqual(E.rulesOf(sp).OVER_AT, R.OVER_AT);
+  assert.ok(E.rulesOf(su).OVER_AT < R.OVER_AT);
+  assert.ok(E.rulesOf(su).WOE_DAMAGE > E.rulesOf(sp).WOE_DAMAGE);
+  assert.strictEqual(E.rulesOf(sue).WOE_DAMAGE, D.MODES.easy.rules.WOE_DAMAGE);
+  assert.strictEqual(E.rulesOf(sue).OVER_AT, E.rulesOf(su).OVER_AT);
+  assert.strictEqual(E.statusOf(9, su), '亢'); assert.strictEqual(E.statusOf(9, sp), '盛');
+  assert.strictEqual(su.deck.length + su.hand.length + su.discard.length, D.SEASONS[1].deck.length);
+  assert.ok(E.isValidState(su));
+});
+
+test('季節：夏天屬長，打長順時、打藏逆時傷君主', () => {
+  let s = clone(E.newGame(2, 'normal', 1).state);
+  s.events = []; s.tokens = 3; D.ELEMENTS.forEach(el => { s.qi[el] = 5; });
+  const all = D.SEASONS[1].deck.slice();
+  s.hand = ['feast', 'still', 'well', 'lotus']; s.deck = all.filter(id => !s.hand.includes(id)); s.discard = [];
+  let t = E.playCard(s, 0).state; // 張燈夜宴：火 +2，長＝順時，火再 +1
+  assert.strictEqual(t.qi.火, 8); assert.strictEqual(t.shun, 1);
+  t = E.playCard(t, 0).state;     // 靜坐澄心：火 +2，藏＝逆時，火 −2
+  assert.strictEqual(t.qi.火, 8); assert.strictEqual(t.ni, 1);
 });
 
 test('資料：五行生剋各成一圈', () => {
@@ -419,7 +450,7 @@ function step(s, res, checks) {
     const t = out.state;
     D.ELEMENTS.forEach(el => assert.ok(Number.isInteger(t.qi[el]) && t.qi[el] >= 0 && t.qi[el] <= 10, '氣超出範圍'));
     assert.ok(t.hand.length <= R.HAND, '手牌超過上限');
-    assert.strictEqual(totalCards(t), 15, '牌數不守恆');
+    assert.strictEqual(totalCards(t), D.SEASONS[t.season].deck.length, '牌數不守恆');
     assert.ok(E.isValidState(t) || t.over, '狀態格式不符');
   }
   return out.state;
@@ -456,8 +487,8 @@ const STRATEGIES = {
   }
 };
 
-function run(seed, strat, checks, mode) {
-  let s = E.newGame(seed, mode).state;
+function run(seed, strat, checks, mode, si) {
+  let s = E.newGame(seed, mode, si).state;
   const r = prng(seed * 7 + 3);
   let guard = 0;
   while (!s.over) {
@@ -475,34 +506,35 @@ test('重現性：同種子、同操作，結果相同', () => {
   assert.notDeepStrictEqual(E.newGame(1).state.hand, E.newGame(2).state.hand);
 });
 
-test('模擬：1000 個種子跑到結束不出錯，不變量都成立（兩種難度）', () => {
-  for (let seed = 1; seed <= 1000; seed++) {
-    run(seed, 'random', true); run(seed, 'simple', true);
-    run(seed, 'random', true, 'easy'); run(seed, 'simple', true, 'easy');
-  }
-});
-
-test('平衡護欄（新手）：照提示玩 ≥ 95% 過關，且比正常容易', () => {
-  const rate = (k, mode) => { let w = 0; for (let seed = 1; seed <= 1000; seed++) if (run(seed, k, false, mode).over.win) w++; return w / 10; };
-  const easySimple = rate('simple', 'easy'), easyRandom = rate('random', 'easy');
-  stats.easy = { 照提示: easySimple + '%', 亂打: easyRandom + '%' };
-  assert.ok(easySimple >= 95, '新手照提示過關率 ' + easySimple);
-  assert.ok(easyRandom > rate('random'), '新手應比正常容易');
-});
-
-test('平衡護欄：亂打過關率 < 40%，簡單策略 70%–95%', () => {
-  ['random', 'simple'].forEach(k => {
-    let win = 0; const ranks = { 聖: 0, 賢: 0, 常: 0 }; let de = 0;
-    const N = 2000;
-    for (let seed = 1; seed <= N; seed++) {
-      const s = run(seed, k, false);
-      if (s.over.win) { win++; ranks[s.over.rank]++; de += s.de; }
+test('模擬：每季兩種難度各 1000 個種子跑到結束不出錯，不變量都成立', () => {
+  D.SEASONS.forEach((_, si) => {
+    for (let seed = 1; seed <= 1000; seed++) {
+      ['normal', 'easy'].forEach(mode => { run(seed, 'random', true, mode, si); run(seed, 'simple', true, mode, si); });
     }
-    stats[k] = { 過關率: (win / N * 100).toFixed(1) + '%', 平均德: win ? (de / win).toFixed(1) : '-', 評等: ranks };
   });
-  const rate = k => parseFloat(stats[k].過關率);
-  assert.ok(rate('random') < 40, '亂打過關率 ' + stats.random.過關率);
-  assert.ok(rate('simple') >= 70 && rate('simple') <= 95, '簡單策略過關率 ' + stats.simple.過關率);
+});
+
+const rateOf = (k, mode, si, N) => { let w = 0; for (let seed = 1; seed <= N; seed++) if (run(seed, k, false, mode, si).over.win) w++; return Math.round(w / N * 1000) / 10; };
+
+test('平衡護欄（新手）：每季照提示玩 ≥ 95% 過關，且比正常容易', () => {
+  D.SEASONS.forEach((se, si) => {
+    const easySimple = rateOf('simple', 'easy', si, 1000), easyRandom = rateOf('random', 'easy', si, 1000);
+    stats[se.name + '・新手'] = { 照提示: easySimple + '%', 亂打: easyRandom + '%' };
+    assert.ok(easySimple >= 95, se.name + ' 新手照提示過關率 ' + easySimple);
+    assert.ok(easyRandom > rateOf('random', 'normal', si, 1000), se.name + ' 新手應比正常容易');
+  });
+});
+
+test('平衡護欄（正常）：每季亂打 < 40%，照提示 70%–95%；後面的季節亂打不比前面容易', () => {
+  let prevRandom = 100;
+  D.SEASONS.forEach((se, si) => {
+    const random = rateOf('random', 'normal', si, 2000), simple = rateOf('simple', 'normal', si, 2000);
+    stats[se.name + '・正常'] = { 照提示: simple + '%', 亂打: random + '%' };
+    assert.ok(random < 40, se.name + ' 亂打過關率 ' + random);
+    assert.ok(simple >= 70 && simple <= 95, se.name + ' 照提示過關率 ' + simple);
+    assert.ok(random <= prevRandom + 2, se.name + ' 比前一季容易');
+    prevRandom = random;
+  });
 });
 
 console.log('平衡：', JSON.stringify(stats));

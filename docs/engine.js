@@ -4,10 +4,13 @@ const LL_ENGINE = (function (D) {
   const R = D.RULES; // 不分難度的常數（範圍、狀態字樣、評等）
   const MODE_CACHE = {};
   // 依難度合併出這一局的規則
+  // 合併順序：基本規則 ← 季節規則 ← 難度規則
   function rulesOf(s) {
     const mode = s && D.MODES[s.mode] ? s.mode : 'normal';
-    if (!MODE_CACHE[mode]) MODE_CACHE[mode] = Object.assign({}, D.RULES, D.MODES[mode].rules);
-    return MODE_CACHE[mode];
+    const si = s && D.SEASONS[s.season] ? s.season : 0;
+    const key = mode + ':' + si;
+    if (!MODE_CACHE[key]) MODE_CACHE[key] = Object.assign({}, D.RULES, D.SEASONS[si].rules, D.MODES[mode].rules);
+    return MODE_CACHE[key];
   }
   const MINISTER_ELS = D.ELEMENTS.filter(e => e !== D.SOVEREIGN);
 
@@ -33,11 +36,13 @@ const LL_ENGINE = (function (D) {
   const generator = el => D.ELEMENTS.find(x => D.GEN[x] === el);
   const controller = el => D.ELEMENTS.find(x => D.CTRL[x] === el);
 
-  function statusOf(v) {
+  // 傳入狀態時，依該局的亢害門檻判斷「亢」
+  function statusOf(v, s) {
+    if (s && v >= rulesOf(s).OVER_AT) return R.STATUS[R.STATUS.length - 1].name;
     return R.STATUS.find(x => v <= x.max).name;
   }
-  function tokensFor(fire, mode) {
-    return rulesOf({ mode }).TOKENS.find(x => fire >= x.min).n;
+  function tokensFor(fire, mode, seasonIndex) {
+    return rulesOf({ mode, season: seasonIndex }).TOKENS.find(x => fire >= x.min).n;
   }
   function rankFor(de) {
     return R.RANKS.find(x => de >= x.min).name;
@@ -113,17 +118,17 @@ const LL_ENGINE = (function (D) {
     }
     while (s.hand.length < R.HAND && drawOne(s, log)) { /* 補牌 */ }
     if (R.GUARANTEE_FIX) guaranteeFix(s, log);
-    s.tokens = tokensFor(s.qi[D.SOVEREIGN], s.mode);
+    s.tokens = tokensFor(s.qi[D.SOVEREIGN], s.mode, s.season);
     log.push({ type: 'tokens', n: s.tokens });
   }
 
-  function newGame(seed, mode) {
+  function newGame(seed, mode, seasonIndex) {
     const s = {
       v: 1,
       mode: D.MODES[mode] ? mode : 'normal',
       seed: seed >>> 0,
       rng: seed >>> 0,
-      season: 0,
+      season: D.SEASONS[seasonIndex] ? seasonIndex : 0,
       turn: 1,
       qi: {},
       de: 0,
