@@ -122,12 +122,30 @@ const LL_DATA = {
       terms: ['立秋', '處暑', '白露', '秋分', '寒露', '霜降'],
       deck: ['garden', 'drill', 'feast', 'court', 'still', 'harvest', 'yam', 'granary',
         'decree', 'justice', 'voices', 'well', 'seal', 'climb', 'crafts'],
-      events: ['dry', 'sigh', 'heat', 'chill', 'rage', 'fright'],
+      events: ['dry', 'sigh', 'heat', 'frost', 'rage', 'fright'],
       decree: '秋三月，此謂容平，天氣以急，地氣以明。早臥早起……使志安寧，以緩秋刑，收斂神氣，使秋氣平，無外其志，使肺氣清。',
       decreeSource: '《黃帝內經・素問・四氣調神大論》',
       restQuote: '秋天要「早臥早起」：天黑了就早點睡，天亮就起來。',
       tagNote: '秋天屬「收」。打「收」的牌是順時，宰相（肺・金）會更穩健；打「生」的牌是逆時，會傷到宰相。',
       intro: '秋天到了，萬物開始收成。陛下要收斂心神、早點休息，別再像夏天那樣往外衝：秋天熬夜特別傷身。'
+    },
+    {
+      id: 'winter',
+      name: '冬',
+      tag: '藏',
+      el: '水',
+      rest: 'early-late',
+      // 冬天「無擾乎陽」：逆時更傷大匠，熬夜代價與秋天一樣重
+      rules: { SEASON_LOSS: 3, WOE_DAMAGE: 3, LAMP_COST: [['火', -3], ['水', -2]] },
+      terms: ['立冬', '小雪', '大雪', '冬至', '小寒', '大寒'],
+      deck: ['garden', 'reward', 'drill', 'feast', 'court', 'still', 'yam', 'granary', 'harvest',
+        'decree', 'justice', 'voices', 'well', 'seal', 'warm'],
+      events: ['frost', 'fright', 'brood', 'sigh', 'rage', 'revel'],
+      decree: '冬三月，此謂閉藏，水冰地坼，無擾乎陽。早臥晚起，必待日光，使志若伏若匿，若有私意，若已有得，去寒就溫，無泄皮膚，使氣亟奪。',
+      decreeSource: '《黃帝內經・素問・四氣調神大論》',
+      restQuote: '冬天要「早臥晚起，必待日光」：天一黑就睡，等太陽出來再起床。',
+      tagNote: '冬天屬「藏」。打「藏」的牌是順時，大匠（腎・水）能好好收藏；打「長」的牌是逆時，會耗損大匠。',
+      intro: '冬天到了，萬物都躲起來過冬。陛下也要「無擾乎陽」：多休息、少折騰，把力氣藏好。'
     }
   ],
 
@@ -151,7 +169,8 @@ const LL_DATA = {
     weed: { name: '耘田除草', el: '土', tag: '長', fx: [['土', 2]] },
     lotus: { name: '荷塘納涼', el: '水', tag: '長', fx: [['水', 2], ['火', -1]] },
     harvest: { name: '秋收入倉', el: '土', tag: '收', fx: [['土', 2]] },
-    climb: { name: '登高望遠', el: '火', tag: '收', fx: [['火', 1], ['金', 1]] }
+    climb: { name: '登高望遠', el: '火', tag: '收', fx: [['火', 1], ['金', 1]] },
+    warm: { name: '去寒就溫', el: '水', tag: '藏', fx: [['水', 1], ['火', 1]] }
   },
 
   // kind：weather（天候）或 emotion（情志）。omen：徵兆描述；why：天師的解說；quote：原文。
@@ -209,6 +228,12 @@ const LL_DATA = {
       omen: '西風一吹，空氣乾得發緊，宰相說話時喉嚨沙沙的。',
       why: '燥與肺（金）相通。打金牌讓宰相強壯，或打土牌支援他（土生金）。宰相的氣到 {DISPEL} 以上，燥氣就傷不了他。',
       quote: '西方生燥，燥生金，金生辛，辛生肺。'
+    },
+    frost: {
+      name: '霜寒侵骨', kind: 'weather', el: '水',
+      omen: '清晨一片白霜，大匠守著的井邊結了冰，他的腰背一陣陣發涼。',
+      why: '寒與腎（水）相通。打水牌讓大匠強壯，或打金牌支援他（金生水）。大匠的氣到 {DISPEL} 以上，寒氣就傷不了他。',
+      quote: '北方生寒，寒生水，水生鹹，鹹生腎。'
     },
     fright: {
       name: '大匠驚惶', kind: 'emotion', el: '水',

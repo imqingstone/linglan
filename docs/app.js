@@ -570,6 +570,7 @@
       if (nextMode && !unlocked()) flag(UNLOCK_KEY, true);
       if (nextSeason !== null) notes.push(`已解鎖${D.SEASONS[nextSeason].name}季。`);
       if (nextMode) notes.push(`可以挑戰「${D.MODES[nextMode].name}」難度。`);
+      if (D.SEASONS.every(x => cleared().includes(x.id))) notes.push('四季都平安度過了！「一整年」連續模式製作中。');
     }
     $('over-unlock').hidden = !notes.length;
     $('over-unlock').textContent = notes.join('');
