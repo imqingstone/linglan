@@ -110,6 +110,24 @@ const LL_DATA = {
       restQuote: '夏天要「夜臥早起，無厭於日」：可以晚一點睡，但早上要起來，別嫌白天太長。',
       tagNote: '夏天屬「長」。打「長」的牌是順時，君主（心・火）精神更好；打「藏」的牌是逆時，會耗損君主，令也會跟著變少。',
       intro: '夏天到了，萬物長得最茂盛。陛下也要跟著舒展，但別把自己燒乾了：夏天的氣到 {OVER} 就會過亢。'
+    },
+    {
+      id: 'autumn',
+      name: '秋',
+      tag: '收',
+      el: '金',
+      rest: 'early-early',
+      // 秋天要收斂：逆時更傷宰相，熬夜代價更高
+      rules: { SEASON_LOSS: 3, WOE_DAMAGE: 3, LAMP_COST: [['火', -3], ['水', -2]] },
+      terms: ['立秋', '處暑', '白露', '秋分', '寒露', '霜降'],
+      deck: ['garden', 'drill', 'feast', 'court', 'still', 'harvest', 'yam', 'granary',
+        'decree', 'justice', 'voices', 'well', 'seal', 'climb', 'crafts'],
+      events: ['dry', 'sigh', 'heat', 'chill', 'rage', 'fright'],
+      decree: '秋三月，此謂容平，天氣以急，地氣以明。早臥早起……使志安寧，以緩秋刑，收斂神氣，使秋氣平，無外其志，使肺氣清。',
+      decreeSource: '《黃帝內經・素問・四氣調神大論》',
+      restQuote: '秋天要「早臥早起」：天黑了就早點睡，天亮就起來。',
+      tagNote: '秋天屬「收」。打「收」的牌是順時，宰相（肺・金）會更穩健；打「生」的牌是逆時，會傷到宰相。',
+      intro: '秋天到了，萬物開始收成。陛下要收斂心神、早點休息，別再像夏天那樣往外衝：秋天熬夜特別傷身。'
     }
   ],
 
@@ -131,7 +149,9 @@ const LL_DATA = {
     seal: { name: '封庫儲藏', el: '水', tag: '藏', fx: [['水', 3], ['火', -1]] },
     crafts: { name: '百工獻藝', el: '水', tag: '長', fx: [['水', 1], ['木', 1]] },
     weed: { name: '耘田除草', el: '土', tag: '長', fx: [['土', 2]] },
-    lotus: { name: '荷塘納涼', el: '水', tag: '長', fx: [['水', 2], ['火', -1]] }
+    lotus: { name: '荷塘納涼', el: '水', tag: '長', fx: [['水', 2], ['火', -1]] },
+    harvest: { name: '秋收入倉', el: '土', tag: '收', fx: [['土', 2]] },
+    climb: { name: '登高望遠', el: '火', tag: '收', fx: [['火', 1], ['金', 1]] }
   },
 
   // kind：weather（天候）或 emotion（情志）。omen：徵兆描述；why：天師的解說；quote：原文。
@@ -183,6 +203,12 @@ const LL_DATA = {
       omen: '連下幾天悶雨，糧倉的牆角發霉，司倉整個人懶洋洋的。',
       why: '濕與脾（土）相通。打土牌讓司倉強壯，或打火牌溫暖他（火生土）。司倉的氣到 {DISPEL} 以上，濕氣自己就散了。',
       quote: '中央生濕，濕生土，土生甘，甘生脾。'
+    },
+    dry: {
+      name: '秋燥傷人', kind: 'weather', el: '金',
+      omen: '西風一吹，空氣乾得發緊，宰相說話時喉嚨沙沙的。',
+      why: '燥與肺（金）相通。打金牌讓宰相強壯，或打土牌支援他（土生金）。宰相的氣到 {DISPEL} 以上，燥氣就傷不了他。',
+      quote: '西方生燥，燥生金，金生辛，辛生肺。'
     },
     fright: {
       name: '大匠驚惶', kind: 'emotion', el: '水',

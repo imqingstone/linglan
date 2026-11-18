@@ -86,6 +86,8 @@
   function closeDlg(id) { const d = $(id); if (d.open) d.close(); }
   const season = s => D.SEASONS[s.season];
   const RR = () => E.rulesOf(game);
+  // 挑燈的代價，例如「君主 −3、大匠 −2」
+  const lampCost = () => RR().LAMP_COST.map(([el, d]) => `${title(el)} ${sign(d)}`).join('、');
   // 看過解說的徵兆（每局分開記），新手模式要看過才在牌上標「可化解」
   const READ_KEY = 'linglan.read';
   let readList = null;
@@ -250,7 +252,7 @@
       case 'play': return { text: `下令：${D.CARDS[e.card].name}。`, tone: '' };
       case 'shun': return { text: `這張屬「${se.tag}」，順應${se.name}天。`, tone: 'good' };
       case 'ni': return { text: `這張屬「${D.CARDS[e.card].tag}」，與${se.name}天的「${se.tag}」相逆。`, tone: 'bad' };
-      case 'lamp': return { text: '挑燈夜讀，多一道令。就寢時君主和大匠各 −1。', tone: '' };
+      case 'lamp': return { text: `挑燈夜讀，多一道令。就寢時${lampCost()}。`, tone: '' };
       case 'rest':
         if (e.lamp) return { text: '昨夜挑燈，睡得太晚。', tone: 'bad' };
         return e.ok ? { text: `${D.RESTS[e.rest].name}，作息合時。`, tone: 'good' } : { text: `${D.RESTS[e.rest].name}，與${se.name}天的作息不合，沒有加分。`, tone: 'bad' };
@@ -328,7 +330,7 @@
     if (!game || game.over) return;
     const se = season(game);
     const notes = [];
-    if (game.lamp) notes.push('今晚挑過燈了，怎麼睡都算熬夜，君主和大匠各 −1。');
+    if (game.lamp) notes.push(`今晚挑過燈了，怎麼睡都算熬夜：${lampCost()}。`);
     else notes.push(se.restQuote);
     if (game.tokens > 0) notes.push(`還有 ${game.tokens} 道令沒下。`);
     $('sleep-note').textContent = notes.join('');
