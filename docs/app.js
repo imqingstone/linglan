@@ -123,13 +123,21 @@
     if (unlocked() && !list.includes(D.SEASONS[0].id)) list.push(D.SEASONS[0].id);
     return list;
   }
+  function markYear() {
+    const list = cleared();
+    if (!list.includes('year')) list.push('year');
+    try { localStorage.setItem(CLEARED_KEY, JSON.stringify(list)); } catch (e) { /* 略過 */ }
+  }
   function markCleared(si) {
     const list = cleared();
     const id = D.SEASONS[si].id;
     if (!list.includes(id)) list.push(id);
     try { localStorage.setItem(CLEARED_KEY, JSON.stringify(list)); } catch (e) { /* 略過 */ }
   }
-  const seasonOpen = si => si === 0 || (D.SEASONS[si] && cleared().includes(D.SEASONS[si - 1].id));
+  const YEAR = D.SEASONS.length; // 季節選擇的最後一格：一整年
+  const allCleared = () => D.SEASONS.every(x => cleared().includes(x.id));
+  const seasonOpen = si => si === 0 || (si === YEAR ? allCleared() : !!D.SEASONS[si] && cleared().includes(D.SEASONS[si - 1].id));
+  const pickOf = s => (s.year ? YEAR : s.season);
   function chosenSeason() {
     let si = 0;
     try { si = parseInt(localStorage.getItem(SEASON_KEY), 10) || 0; } catch (e) { si = 0; }
@@ -166,11 +174,15 @@
   function renderTop(s) {
     const se = season(s);
     $('term').textContent = se.terms[s.turn - 1];
-    $('turn-no').textContent = `第 ${s.turn} 旬・共 ${R.TURNS} 旬・${D.MODES[s.mode || 'normal'].name}`;
+    const total = s.year ? R.TURNS * D.SEASONS.length : R.TURNS;
+    const nth = s.year ? s.season * R.TURNS + s.turn : s.turn;
+    $('turn-no').textContent = `第 ${nth} 旬・共 ${total} 旬・${s.year ? '一整年・' : ''}${D.MODES[s.mode || 'normal'].name}`;
     $('season-tag').textContent = `${se.name}・${se.tag}`;
     $('season-tag').dataset.el = se.el;
     $('de').textContent = s.de;
-    $('goal').innerHTML = `<b>目標</b>平安度過 ${R.TURNS} 旬，別讓大臣的氣掉到 ${R.LEAVE_AT} 以下`;
+    $('goal').innerHTML = s.year
+      ? `<b>目標</b>平安度過一整年，季末照顧好當季的主角`
+      : `<b>目標</b>平安度過 ${R.TURNS} 旬，別讓大臣的氣掉到 ${R.LEAVE_AT} 以下`;
   }
   function renderEvents(s) {
     const box = $('events');
@@ -261,6 +273,15 @@
       case 'woe': return { text: `「${D.EVENTS[e.id].name}」沒有當天處理，成了禍患：之後每旬 ${title(D.EVENTS[e.id].el)} −${RR().WOE_DAMAGE}。`, tone: 'bad' };
       case 'leave': return e.on ? { text: `${who(e.el)}撐不住，告假了。他的牌暫時不能用。`, tone: 'bad' } : { text: `${title(e.el)}恢復元氣，回朝了。`, tone: 'good' };
       case 'reshuffle': return { text: '用過的牌洗回牌庫。', tone: '' };
+      case 'season': {
+        const a = D.SEASONS[e.from], b = D.SEASONS[e.to];
+        const ok = !e.weak && !e.tooNi;
+        const why = [];
+        if (e.weak) why.push(`${title(e.el)}的氣只有 ${e.qi}，不到 ${RR().CARRY_WEAK_AT}`);
+        if (e.tooNi) why.push(`逆時 ${e.ni} 次`);
+        return { text: ok ? `${a.name}天結束，${title(e.el)}照顧得很好。換季休養之後，迎接${b.name}天。` : `${a.name}天結束，但${why.join('、')}。換季休養之後，迎接${b.name}天。`, tone: ok ? 'good' : 'bad' };
+      }
+      case 'carry': return { text: `${D.SEASONS[e.from].name}天沒照顧好，下一季帶著禍患「${D.EVENTS[e.id].name}」開始。`, tone: 'bad' };
       case 'aid': return { text: `天師替陛下備好了「${D.CARDS[e.card].name}」，可以化解「${D.EVENTS[e.id].name}」。`, tone: 'good' };
       case 'qi': {
         const r = String(e.reason);
@@ -268,6 +289,7 @@
         const tone = e.delta > 0 ? 'up' : 'down';
         const d = sign(e.delta);
         if (r === 'card') return { text: `${w} ${d}。`, tone };
+        if (r === 'recover') return { text: `換季休養，${w} ${d}。`, tone };
         if (r === 'rest') return { text: `睡得好，${w} ${d}。`, tone };
         if (r === 'lamp') return { text: `熬夜傷神，${w} ${d}。`, tone };
         if (r === 'shun') return { text: `順時而為，${w} ${d}。`, tone };
@@ -352,7 +374,7 @@
   // 結算小結：一行一行出現，點一下全部顯示
   function showSummary(before, log) {
     const entries = visible(log);
-    const cut = entries.findIndex(e => e.type === 'turn');
+    const cut = entries.findIndex(e => e.type === 'turn' || e.type === 'season');
     const settle = cut === -1 ? entries : entries.slice(0, cut);
     const next = cut === -1 ? [] : entries.slice(cut);
     const lines = settle.filter(e => e.type !== 'over').map(e => describe(e, before)).filter(x => x.text);
@@ -392,7 +414,8 @@
   }
 
   function startNew(mode, si) {
-    const r = E.newGame(newSeed(), mode || chosenMode(), si === undefined ? chosenSeason() : si);
+    const pick = si === undefined ? chosenSeason() : si;
+    const r = E.newGame(newSeed(), mode || chosenMode(), pick === YEAR ? 0 : pick, pick === YEAR);
     game = r.state;
     save();
     try { const gc = window.goatcounter; if (gc && gc.count) gc.count({ path: 'linglan-play', title: '靈蘭即位', event: true, no_session: true }); } catch (e) { /* 略過 */ }
@@ -460,24 +483,25 @@
     $('game-view').hidden = true;
     window.scrollTo(0, 0);
   }
-  const SEASON_NAMES = ['春', '夏', '秋', '冬'];
+  const SEASON_NAMES = ['春', '夏', '秋', '冬', '年'];
   function renderSeasons() {
     const box = $('seasons');
     const cur = chosenSeason();
     box.hidden = !seasonOpen(1);
-    $('lead-season').textContent = `讓王國平安度過這個${D.SEASONS[cur].name}天。`;
+    $('lead-season').textContent = cur === YEAR ? '讓王國平安度過一整年。' : `讓王國平安度過這個${D.SEASONS[cur].name}天。`;
     if (box.hidden) return;
     box.innerHTML = '';
     SEASON_NAMES.forEach((name, si) => {
       const b = document.createElement('button');
       b.type = 'button';
-      const exists = !!D.SEASONS[si];
+      const exists = si === YEAR || !!D.SEASONS[si];
       const open = exists && seasonOpen(si);
+      const done = si === YEAR ? cleared().includes('year') : exists && cleared().includes(D.SEASONS[si].id);
       b.setAttribute('role', 'radio');
       b.setAttribute('aria-checked', String(si === cur));
       b.disabled = !open;
-      b.innerHTML = `<b>${name}</b><small>${!exists ? '製作中' : open ? (cleared().includes(D.SEASONS[si].id) ? '已過關' : '可挑戰') : '未解鎖'}</small>`;
-      if (exists) b.dataset.el = D.SEASONS[si].el;
+      b.innerHTML = `<b>${name}</b><small>${!exists ? '製作中' : open ? (done ? '已過關' : '可挑戰') : (si === YEAR ? '四季過關' : '未解鎖')}</small>`;
+      if (D.SEASONS[si]) b.dataset.el = D.SEASONS[si].el;
       b.addEventListener('click', () => { setSeason(si); renderSeasons(); });
       box.appendChild(b);
     });
@@ -512,7 +536,7 @@
     const e = game.events[i];
     if (!e) return;
     const def = D.EVENTS[e.id];
-    $('ev-kind').textContent = (e.stage === 'woe' ? '禍患' : '徵兆') + '・' + (def.kind === 'weather' ? '天候' : '情緒');
+    $('ev-kind').textContent = (e.stage === 'woe' ? '禍患' : '徵兆') + '・' + (def.kind === 'weather' ? '天候' : def.kind === 'carry' ? '季節牽連' : '情緒');
     $('ev-name').textContent = def.name;
     $('ev-omen').textContent = def.omen;
     $('ev-woe').hidden = e.stage !== 'woe';
@@ -540,9 +564,9 @@
   }
   function showOver() {
     const o = game.over;
-    $('over-kind').textContent = o.win ? '一季過去' : '王國動盪';
+    $('over-kind').textContent = o.win ? (game.year ? '一年過去' : '一季過去') : '王國動盪';
     $('over-title').textContent = o.win ? `評等：${o.rank}` : '這一季撐不下去了';
-    $('over-words').textContent = o.win ? `${D.TEXT.win.replace('{season}', season(game).name)}${D.TEXT.rankWords[o.rank]}` : D.TEXT.over[o.reason];
+    $('over-words').textContent = o.win ? `${game.year ? D.TEXT.yearWin : D.TEXT.win.replace('{season}', season(game).name)}${D.TEXT.rankWords[o.rank]}` : D.TEXT.over[o.reason];
     $('over-tip').hidden = o.win;
     $('over-tip').textContent = o.win ? '' : D.TEXT.tips[o.reason];
     const rows = [
@@ -553,29 +577,31 @@
       ['逆時', game.ni]
     ];
     $('over-score').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
-    const rk = R.RANKS;
+    const rk = game.year ? R.RANKS_YEAR : R.RANKS;
     $('over-ranks').hidden = !o.win;
     $('over-ranks').textContent = `評等：德 ${rk[0].min} 以上為${rk[0].name}，${rk[1].min} 以上為${rk[1].name}，其餘為${rk[2].name}。`;
     $('over-decree').hidden = !o.win;
     const se = season(game);
-    $('over-decree').innerHTML = `<span>${se.decree}</span><cite>${se.decreeSource}</cite>`;
+    $('over-decree').innerHTML = game.year ? `<span>${D.TEXT.yearDecree}</span><cite>${se.decreeSource}</cite>` : `<span>${se.decree}</span><cite>${se.decreeSource}</cite>`;
     $('over-reveal').hidden = !o.win;
     $('over-reveal').textContent = D.TEXT.reveal;
     const mode = game.mode || 'normal';
     const nextMode = D.MODE_ORDER[D.MODE_ORDER.indexOf(mode) + 1];
-    const nextSeason = D.SEASONS[game.season + 1] ? game.season + 1 : null;
+    const wasAll = allCleared();
+    const nextSeason = !game.year && D.SEASONS[game.season + 1] ? game.season + 1 : null;
     const notes = [];
     if (o.win) {
-      markCleared(game.season);
+      if (game.year) markYear(); else markCleared(game.season);
       if (nextMode && !unlocked()) flag(UNLOCK_KEY, true);
       if (nextSeason !== null) notes.push(`已解鎖${D.SEASONS[nextSeason].name}季。`);
       if (nextMode) notes.push(`可以挑戰「${D.MODES[nextMode].name}」難度。`);
-      if (D.SEASONS.every(x => cleared().includes(x.id))) notes.push('四季都平安度過了！「一整年」連續模式製作中。');
+      if (!game.year && !wasAll && allCleared()) notes.push('四季都平安度過了！已解鎖「一整年」：從立春一路治理到大寒。');
     }
     $('over-unlock').hidden = !notes.length;
     $('over-unlock').textContent = notes.join('');
-    let again = { text: '再來一次', mode, season: game.season };
-    if (o.win && nextSeason !== null) again = { text: `前往${D.SEASONS[nextSeason].name}天`, mode, season: nextSeason };
+    let again = { text: '再來一次', mode, season: pickOf(game) };
+    if (o.win && !game.year && !wasAll && allCleared()) again = { text: '挑戰一整年', mode, season: YEAR };
+    else if (o.win && nextSeason !== null) again = { text: `前往${D.SEASONS[nextSeason].name}天`, mode, season: nextSeason };
     else if (o.win && nextMode) again = { text: `挑戰${D.MODES[nextMode].name}難度`, mode: nextMode, season: game.season };
     $('btn-again').textContent = again.text;
     $('btn-again').dataset.mode = again.mode;
@@ -611,7 +637,7 @@
       openDlg('dlg-help');
     });
     $('m-export').addEventListener('click', () => { closeDlg('dlg-menu'); exportSave(); });
-    $('m-restart').addEventListener('click', () => { closeDlg('dlg-menu'); if (confirm('重新即位會清除目前的進度，確定嗎？')) startNew(game.mode, game.season); });
+    $('m-restart').addEventListener('click', () => { closeDlg('dlg-menu'); if (confirm('重新即位會清除目前的進度，確定嗎？')) startNew(game.mode, pickOf(game)); });
     $('m-home').addEventListener('click', showTitle);
     $('btn-home').addEventListener('click', () => { closeDlg('dlg-over'); clearSave(); game = null; showTitle(); });
     $('btn-again').addEventListener('click', () => {

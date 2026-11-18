@@ -429,6 +429,65 @@ test('新手：每旬開始，有徵兆就一定有能化解的牌；正常不�
   assert.ok(aids > 0);
 });
 
+// ---------- 一整年 ----------
+function toSeasonEnd(s) { s = clone(s); s.turn = R.TURNS; s.events = []; return s; }
+
+test('一整年：第 6 旬結束後換季，牌組換成下一季、節氣從頭開始', () => {
+  const s0 = E.newGame(7, 'normal', 0, true).state;
+  assert.strictEqual(s0.year, true); assert.strictEqual(s0.season, 0);
+  const s = toSeasonEnd(s0); D.ELEMENTS.forEach(el => { s.qi[el] = 6; });
+  const { state: t, log } = E.endTurn(s, D.SEASONS[0].rest);
+  assert.strictEqual(t.over, null);
+  assert.strictEqual(t.season, 1); assert.strictEqual(t.turn, 1);
+  assert.strictEqual(t.deck.length + t.hand.length + t.discard.length, D.SEASONS[1].deck.length);
+  assert.ok(t.hand.every(id => D.SEASONS[1].deck.includes(id)));
+  assert.ok(log.some(e => e.type === 'season'));
+  assert.ok(!log.some(e => e.type === 'carry'), '照顧得好就不該有牽連');
+  assert.ok(E.isValidState(t));
+});
+
+test('一整年：季末當季主角氣不足或逆時太多，下一季帶著禍患開始', () => {
+  const weak = toSeasonEnd(E.newGame(7, 'normal', 0, true).state);
+  D.ELEMENTS.forEach(el => { weak.qi[el] = 6; }); weak.qi.木 = E.rulesOf(weak).CARRY_WEAK_AT - 1;
+  let t = E.endTurn(weak, D.SEASONS[0].rest).state;
+  assert.ok(t.events.some(e => e.id === D.SEASONS[0].carry && e.stage === 'woe'));
+  const ni = toSeasonEnd(E.newGame(7, 'normal', 0, true).state);
+  D.ELEMENTS.forEach(el => { ni.qi[el] = 6; }); ni.seasonNi = E.rulesOf(ni).CARRY_NI;
+  t = E.endTurn(ni, D.SEASONS[0].rest).state;
+  assert.ok(t.events.some(e => e.id === D.SEASONS[0].carry));
+  assert.strictEqual(t.seasonNi, 0, '新的一季重新計算逆時');
+});
+
+test('一整年：換季休養，低於開局值的人回復，但不超過開局值', () => {
+  const s = toSeasonEnd(E.newGame(7, 'normal', 0, true).state);
+  D.ELEMENTS.forEach(el => { s.qi[el] = 6; }); s.qi.土 = 3; s.qi.金 = 2;
+  const R0 = E.rulesOf(s);
+  const t = E.endTurn(s, D.SEASONS[0].rest).state;
+  assert.ok(t.qi.土 <= R0.QI_START && t.qi.土 > 3);
+  assert.strictEqual(t.qi.土, Math.min(R0.QI_START, 3 + R0.SEASON_RECOVER));
+});
+
+test('一整年：牽連禍患可用同一行或相生的牌化解；每季都有牽連（最後一季除外）', () => {
+  D.SEASONS.slice(0, -1).forEach((se, i) => {
+    const ev = D.EVENTS[se.carry];
+    assert.ok(ev && ev.kind === 'carry' && ev.why && ev.quote, se.name);
+    assert.strictEqual(ev.el, D.SEASONS[i + 1].el, se.name + ' 的牽連應落在下一季的主角');
+    assert.ok(D.SEASONS[i + 1].deck.some(c => E.matches(c, se.carry)), se.name);
+  });
+});
+
+test('一整年：撐過冬天才過關，評等用全年門檻', () => {
+  const s = toSeasonEnd(E.newGame(7, 'normal', 0, true).state);
+  s.season = D.SEASONS.length - 1;
+  const all = D.SEASONS[s.season].deck.slice(); s.hand = all.slice(0, 4); s.deck = all.slice(4); s.discard = [];
+  D.ELEMENTS.forEach(el => { s.qi[el] = 6; }); s.de = R.RANKS_YEAR[1].min;
+  const t = E.endTurn(s, D.SEASONS[s.season].rest).state;
+  assert.strictEqual(t.over.win, true);
+  assert.strictEqual(t.over.rank, E.rankFor(t.de, true));
+  assert.notStrictEqual(t.over.rank, '常');
+  assert.notStrictEqual(E.rankFor(20, true), E.rankFor(20, false));
+});
+
 // ---------- 存檔 ----------
 test('存檔驗證', () => {
   const s = E.newGame(5).state;
@@ -494,12 +553,12 @@ const STRATEGIES = {
 };
 
 function run(seed, strat, checks, mode, si) {
-  let s = E.newGame(seed, mode, si).state;
+  let s = si === 'year' ? E.newGame(seed, mode, 0, true).state : E.newGame(seed, mode, si).state;
   const r = prng(seed * 7 + 3);
   let guard = 0;
   while (!s.over) {
     s = STRATEGIES[strat](s, r, checks);
-    if (++guard > 50) throw new Error('沒有結束');
+    if (++guard > 120) throw new Error('沒有結束');
   }
   return s;
 }
@@ -521,6 +580,18 @@ test('模擬：每季兩種難度各 1000 個種子跑到結束不出錯，不�
 });
 
 const rateOf = (k, mode, si, N) => { let w = 0; for (let seed = 1; seed <= N; seed++) if (run(seed, k, false, mode, si).over.win) w++; return Math.round(w / N * 1000) / 10; };
+
+test('一整年：兩種難度各 300 個種子跑完不出錯，不變量都成立', () => {
+  for (let seed = 1; seed <= 300; seed++) ['normal', 'easy'].forEach(mode => { run(seed, 'random', true, mode, 'year'); run(seed, 'simple', true, mode, 'year'); });
+});
+
+test('平衡護欄（一整年）：新手照提示 ≥ 90%；正常照提示 25%–60%、亂打 < 5%', () => {
+  const es = rateOf('simple', 'easy', 'year', 1000), ns = rateOf('simple', 'normal', 'year', 1000), nr = rateOf('random', 'normal', 'year', 1000);
+  stats['一整年'] = { 新手照提示: es + '%', 正常照提示: ns + '%', 正常亂打: nr + '%' };
+  assert.ok(es >= 90, '新手 ' + es);
+  assert.ok(ns >= 25 && ns <= 60, '正常照提示 ' + ns);
+  assert.ok(nr < 5, '正常亂打 ' + nr);
+});
 
 test('平衡護欄（新手）：每季照提示玩 ≥ 95% 過關，且比正常容易', () => {
   D.SEASONS.forEach((se, si) => {

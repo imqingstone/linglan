@@ -44,15 +44,15 @@ const LL_ENGINE = (function (D) {
   function tokensFor(fire, mode, seasonIndex) {
     return rulesOf({ mode, season: seasonIndex }).TOKENS.find(x => fire >= x.min).n;
   }
-  function rankFor(de) {
-    return R.RANKS.find(x => de >= x.min).name;
+  function rankFor(de, year) {
+    return (year ? R.RANKS_YEAR : R.RANKS).find(x => de >= x.min).name;
   }
 
   // 這張牌能不能化解這件事
   function matches(cardId, eventId) {
     const c = D.CARDS[cardId], e = D.EVENTS[eventId];
     if (e.kind === 'emotion') return c.el === controller(e.el);
-    return c.el === e.el || c.el === generator(e.el);
+    return c.el === e.el || c.el === generator(e.el); // 天候與季節牽連
   }
 
   // 增減氣。clampNow 為 true 時立刻限制在範圍內（出牌時），結算期間則留到第 6 步。
@@ -122,13 +122,46 @@ const LL_ENGINE = (function (D) {
     log.push({ type: 'tokens', n: s.tokens });
   }
 
-  function newGame(seed, mode, seasonIndex) {
+  // year 為 true 時是一整年模式：從春天連續玩到冬天
+  // 一整年模式換季：檢查這一季有沒有照顧好，換上新一季的牌組與事件
+  function nextSeason(s, log) {
+    const R = rulesOf(s);
+    const se = season(s);
+    const weak = s.qi[se.el] < R.CARRY_WEAK_AT;
+    const ni = (s.seasonNi || 0) >= R.CARRY_NI;
+    log.push({ type: 'season', from: s.season, to: s.season + 1, el: se.el, qi: s.qi[se.el], ni: s.seasonNi || 0, weak, tooNi: ni });
+    // 換季時休養生息：氣低於開局值的人，各回復一些（不超過開局值）
+    D.ELEMENTS.forEach(el => {
+      const target = R.QI_START, gain = Math.min(R.SEASON_RECOVER, target - s.qi[el]);
+      if (gain > 0) addQi(s, log, el, gain, 'recover', true);
+    });
+    MINISTER_ELS.forEach(el => {
+      if (s.leave[el] && s.qi[el] >= R.RETURN_AT) { s.leave[el] = false; log.push({ type: 'leave', el, on: false }); }
+    });
+    s.season += 1;
+    s.turn = 1;
+    s.seasonNi = 0;
+    const nse = season(s);
+    s.deck = shuffle(s, nse.deck);
+    s.hand = [];
+    s.discard = [];
+    s.eventDeck = shuffle(s, nse.events).slice(0, rulesOf(s).EVENT_TURNS);
+    if ((weak || ni) && se.carry) {
+      s.events.push({ id: se.carry, stage: 'woe', since: 1 });
+      log.push({ type: 'carry', id: se.carry, from: s.season - 1, weak, tooNi: ni });
+    }
+    startTurn(s, log);
+  }
+
+  function newGame(seed, mode, seasonIndex, year) {
     const s = {
       v: 1,
+      year: !!year,
+      seasonNi: 0,
       mode: D.MODES[mode] ? mode : 'normal',
       seed: seed >>> 0,
       rng: seed >>> 0,
-      season: D.SEASONS[seasonIndex] ? seasonIndex : 0,
+      season: !year && D.SEASONS[seasonIndex] ? seasonIndex : 0,
       turn: 1,
       qi: {},
       de: 0,
@@ -192,6 +225,7 @@ const LL_ENGINE = (function (D) {
       }
     } else if (card.tag === D.OPPOSITE[se.tag]) {
       s.ni += 1;
+      s.seasonNi = (s.seasonNi || 0) + 1;
       log.push({ type: 'ni', card: id });
       addQi(s, log, se.el, -R.SEASON_LOSS, 'ni', true);
     }
@@ -306,7 +340,11 @@ const LL_ENGINE = (function (D) {
       const [lo, hi] = R.BALANCE;
       const balanced = D.ELEMENTS.every(el => s.qi[el] >= lo && s.qi[el] <= hi);
       if (balanced) addDe(s, log, R.DE_BALANCE, 'balance');
-      const rank = rankFor(s.de);
+      if (s.year && D.SEASONS[s.season + 1]) {
+        nextSeason(s, log);
+        return { state: s, log };
+      }
+      const rank = rankFor(s.de, s.year);
       s.over = { win: true, reason: null, rank, de: s.de, balanced };
       log.push({ type: 'over', win: true, rank, balanced });
       return { state: s, log };
@@ -322,6 +360,7 @@ const LL_ENGINE = (function (D) {
     try {
       if (!s || s.v !== 1 || typeof s.rng !== 'number' || !D.SEASONS[s.season]) return false;
       if (s.mode !== undefined && !D.MODES[s.mode]) return false;
+      if (s.year !== undefined && typeof s.year !== 'boolean') return false;
       if (!(s.turn >= 1 && s.turn <= R.TURNS)) return false;
       if (!D.ELEMENTS.every(el => Number.isInteger(s.qi[el]) && s.qi[el] >= R.QI_MIN && s.qi[el] <= R.QI_MAX)) return false;
       const cards = [].concat(s.deck, s.hand, s.discard);
