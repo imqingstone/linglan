@@ -9,7 +9,7 @@ const LL_DATA = {
   MINISTERS: {
     木: { title: '將軍', organ: '肝', place: '太衝', dir: '東', line: '肝者，將軍之官，謀慮出焉。', role: '古人把肝看成將軍，負責謀略與決斷，讓全身的氣舒展暢通。將軍容易動怒，春天是他的季節。' },
     火: { title: '君主', organ: '心', place: '神門', dir: '南', line: '心者，君主之官也，神明出焉。', role: '古人把心看成一國之君，神明由此而出。君主安定，全國才安定；在遊戲裡，君主的氣決定每旬能下幾道令。夏天是他的季節。' },
-    土: { title: '司倉', organ: '脾胃', place: '太白', dir: '中', line: '脾胃者，倉廩之官，五味出焉。', role: '古人把脾胃看成管糧倉的官，五味由此而出，把吃進來的東西化為全身的養分。想太多會拖累他。' },
+    土: { title: '司倉', organ: '脾', place: '太白', dir: '中', line: '脾胃者，倉廩之官，五味出焉。', role: '原文把脾胃合稱倉廩之官，五味由此而出。脾把吃進來的東西化為全身的養分，想太多會拖累他；胃是他的副官。' },
     金: { title: '宰相', organ: '肺', place: '中府', dir: '西', line: '肺者，相傅之官，治節出焉。', role: '古人把肺看成輔佐君主的宰相，掌管節度與秩序。憂愁會傷到他，秋天是他的季節。' },
     水: { title: '大匠', organ: '腎', place: '湧泉', dir: '北', line: '腎者，作強之官，伎巧出焉。', role: '古人把腎看成「作強之官」，像技藝高超的工匠，力量與巧思由此而出。驚恐會傷到他，冬天是他的季節。' }
   },
@@ -44,17 +44,14 @@ const LL_DATA = {
     REST_GAIN: 1,            // 作息合時，火 +1
     SEASON_GAIN: 1,          // 打出當季牌，當季五行 +1（每旬一次）
     SEASON_LOSS: 1,          // 打出逆時牌，當季五行 −1（每次）
-    WOE_DAMAGE: 3,
+    WOE_DAMAGE: 4,           // 有副官可派，所以禍患比加入十二官前重 1
     WEATHER_DISPEL: 7,       // 天候徵兆轉禍患時，該五行在此以上就自動消散
     GEN_AT: 8,               // 相生門檻
     OVER_AT: 10,             // 亢害門檻
     LEAVE_AT: 2,             // 大臣的氣降到此以下（虛）就告假
     RETURN_AT: 3,            // 告假後回朝
     DANGER_LEAVES: 2,        // 同時告假人數達此即國危
-    GUARD: false,            // 副官每季替搭檔擋下一次禍患（設計未定，先關閉）
-    GUARD_BLOCK: 99,         // 每次擋下的傷害（大於禍患傷害就是全擋）
-    GUARD_WILD: true,        // 三焦可替任何人擋
-    GUARD_MIN_QI: 0,         // 搭檔的氣在此以上，副官才擋得住
+    GUARD: true,             // 副官：每季可派出一次，替搭檔擋下該旬的禍患
     CARRY_WEAK_AT: 5,        // 一整年模式：季末當季主角的氣低於此，下一季帶著禍患開始
     CARRY_NI: 3,             // 一整年模式：一季逆時達此次數，下一季帶著禍患開始
     SEASON_RECOVER: 3,       // 一整年模式：換季時，氣低於開局值的人各回復這麼多
@@ -123,7 +120,7 @@ const LL_DATA = {
       id: 'summer',
       gloss: '夏天萬物茂盛。古人建議晚睡早起、別嫌白天太長，讓心情愉快、不要動怒，讓氣能向外舒展。',
       // 夏天：逆時傷心更重、禍患更重，氣到 9 就過亢
-      rules: { SEASON_LOSS: 2, OVER_AT: 9, WOE_DAMAGE: 4 },
+      rules: { SEASON_LOSS: 2, OVER_AT: 9, WOE_DAMAGE: 6 },
       name: '夏',
       tag: '長',
       el: '火',
@@ -147,7 +144,7 @@ const LL_DATA = {
       el: '金',
       rest: 'early-early',
       // 秋天要收斂：逆時更傷宰相，熬夜代價更高
-      rules: { SEASON_LOSS: 3, WOE_DAMAGE: 3, LAMP_COST: [['火', -3], ['水', -2]] },
+      rules: { SEASON_LOSS: 3, WOE_DAMAGE: 4, LAMP_COST: [['火', -3], ['水', -2]] },
       terms: ['立秋', '處暑', '白露', '秋分', '寒露', '霜降'],
       deck: ['garden', 'drill', 'feast', 'court', 'still', 'harvest', 'yam', 'granary',
         'decree', 'justice', 'voices', 'well', 'seal', 'climb', 'crafts'],
@@ -167,7 +164,7 @@ const LL_DATA = {
       el: '水',
       rest: 'early-late',
       // 冬天「無擾乎陽」：逆時更傷大匠，熬夜代價與秋天一樣重
-      rules: { SEASON_LOSS: 3, WOE_DAMAGE: 3, LAMP_COST: [['火', -3], ['水', -2]] },
+      rules: { SEASON_LOSS: 3, WOE_DAMAGE: 4, LAMP_COST: [['火', -3], ['水', -2]] },
       terms: ['立冬', '小雪', '大雪', '冬至', '小寒', '大寒'],
       deck: ['garden', 'reward', 'drill', 'feast', 'court', 'still', 'yam', 'granary', 'harvest',
         'decree', 'justice', 'voices', 'well', 'seal', 'warm'],

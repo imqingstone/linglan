@@ -106,6 +106,7 @@ const LL_ENGINE = (function (D) {
   // 一旬開始：晨報、補牌、發令
   function startTurn(s, log) {
     const R = rulesOf(s);
+    s.shield = {};
     s.lamp = false;
     s.seasonGain = false;
     s.seasonTagPlayed = false;
@@ -128,12 +129,28 @@ const LL_ENGINE = (function (D) {
     s.guards = {};
     D.DEPUTY_ORDER.forEach(id => { s.guards[id] = true; });
   }
-  function guardFor(s, el) {
-    if (!s.guards) return null;
-    const own = D.DEPUTY_ORDER.find(id => D.DEPUTIES[id].partner === el && s.guards[id]);
-    if (own) return own;
-    if (!rulesOf(s).GUARD_WILD) return null;
-    return D.DEPUTY_ORDER.find(id => D.DEPUTIES[id].partner === '*' && s.guards[id]) || null;
+  const hasWoe = (s, el) => s.events.some(e => e.stage === 'woe' && D.EVENTS[e.id].el === el);
+
+  // 派出副官：搭檔身上有禍患才能派，每位副官每季一次，不花令。三焦可派給任何人。
+  function canSend(state, id, el) {
+    if (state.over) return { ok: false, reason: '本季已結束' };
+    const d = D.DEPUTIES[id];
+    if (!d) return { ok: false, reason: '沒有這位副官' };
+    if (!rulesOf(state).GUARD) return { ok: false, reason: '副官尚未啟用' };
+    const target = d.partner === '*' ? el : d.partner;
+    if (!D.ELEMENTS.includes(target)) return { ok: false, reason: '請選擇要守護的人' };
+    if (!state.guards || !state.guards[id]) return { ok: false, reason: `${d.name}這一季已經派出過了` };
+    if (state.shield && state.shield[target]) return { ok: false, reason: '這一旬已經有副官守護他了' };
+    if (!hasWoe(state, target)) return { ok: false, reason: '他身上沒有禍患，不必派出' };
+    return { ok: true, reason: '', el: target };
+  }
+  function sendDeputy(state, id, el) {
+    const check = canSend(state, id, el);
+    if (!check.ok) return { state, log: [{ type: 'denied', reason: check.reason }] };
+    const s = clone(state);
+    s.guards[id] = false;
+    s.shield = Object.assign({}, s.shield, { [check.el]: id });
+    return { state: s, log: [{ type: 'send', deputy: id, el: check.el }] };
   }
 
   // 一整年模式換季：檢查這一季有沒有照顧好，換上新一季的牌組與事件
@@ -283,17 +300,16 @@ const LL_ENGINE = (function (D) {
     if (s.lamp) R.LAMP_COST.forEach(([el, d]) => addQi(s, log, el, d, 'lamp'));
     else if (ok) addQi(s, log, D.SOVEREIGN, R.REST_GAIN, 'rest');
 
-    // 2. 禍患：先由搭檔的副官擋下，其次由三焦（可替任何人擋），每位副官每季一次
+    // 2. 禍患：這一旬派了副官守護的人，禍患傷害全部擋下
     s.events.filter(e => e.stage === 'woe').forEach(e => {
       const el = D.EVENTS[e.id].el;
-      const g = R.GUARD && s.qi[el] >= R.GUARD_MIN_QI ? guardFor(s, el) : null;
-      const blocked = g ? Math.min(R.GUARD_BLOCK, R.WOE_DAMAGE) : 0;
+      const g = s.shield && s.shield[el];
       if (g) {
-        s.guards[g] = false;
         s.stats.guard = (s.stats.guard || 0) + 1;
-        log.push({ type: 'guard', deputy: g, id: e.id, el, blocked });
+        log.push({ type: 'guard', deputy: g, id: e.id, el, blocked: R.WOE_DAMAGE });
+      } else {
+        addQi(s, log, el, -R.WOE_DAMAGE, 'woe:' + e.id);
       }
-      addQi(s, log, el, -(R.WOE_DAMAGE - blocked), 'woe:' + e.id);
     });
 
     // 3. 徵兆轉禍患
@@ -385,6 +401,7 @@ const LL_ENGINE = (function (D) {
       if (s.mode !== undefined && !D.MODES[s.mode]) return false;
       if (s.year !== undefined && typeof s.year !== 'boolean') return false;
       if (s.guards !== undefined && (typeof s.guards !== 'object' || !Object.keys(s.guards).every(id => D.DEPUTIES[id]))) return false;
+      if (s.shield !== undefined && (typeof s.shield !== 'object' || !Object.values(s.shield).every(id => D.DEPUTIES[id]))) return false;
       if (!(s.turn >= 1 && s.turn <= R.TURNS)) return false;
       if (!D.ELEMENTS.every(el => Number.isInteger(s.qi[el]) && s.qi[el] >= R.QI_MIN && s.qi[el] <= R.QI_MAX)) return false;
       const cards = [].concat(s.deck, s.hand, s.discard);
@@ -401,7 +418,7 @@ const LL_ENGINE = (function (D) {
   }
 
   return {
-    newGame, playCard, burnLamp, endTurn, canPlay,
+    newGame, playCard, burnLamp, endTurn, canPlay, sendDeputy, canSend,
     matches, statusOf, tokensFor, rankFor, rulesOf, isValidState, generator, controller,
     MINISTER_ELS
   };

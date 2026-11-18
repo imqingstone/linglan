@@ -164,12 +164,59 @@
     let bar = '';
     for (let i = 1; i <= R.QI_MAX; i++) bar += `<i class="${i <= v ? 'on' : ''}"></i>`;
     box.classList.toggle('away', !!away);
-    box.setAttribute('aria-label', `${m.title}，${m.organ}，${el}，氣 ${v}，${st}${away ? '，告假中' : ''}`);
-    box.innerHTML = `<span class="head"><span class="title">${m.title}</span><span class="el">${el}</span></span>`
+    const deps = D.DEPUTY_ORDER.filter(id => D.DEPUTIES[id].partner === el);
+    box.innerHTML = `<button type="button" class="region-main" aria-label="${m.title}，${m.organ}，${el}，氣 ${v}，${st}${away ? '，告假中' : ''}。點一下看詳細">`
+      + `<span class="head"><span class="title">${m.title}</span><span class="el">${el}</span></span>`
       + `<span class="organ">${m.organ}</span>`
       + `<span class="bar" aria-hidden="true">${bar}</span>`
-      + `<span class="val"><b>${v}</b><span class="st ${st}">${st}</span></span>`
+      + `<span class="val"><b>${v}</b><span class="st ${st}">${st}</span></span></button>`
+      + (RR().GUARD ? `<span class="deps">${deps.map(id => depChip(s, id, el)).join('')}</span>` : '')
       + (away ? '<span class="away-tag">告假</span>' : '');
+  }
+  // 副官標籤：守護中、可派出（發亮）、本季已派、待命
+  function depState(s, id, el) {
+    if (s.shield && Object.keys(s.shield).some(k => s.shield[k] === id)) return 'on';
+    if (!s.guards || !s.guards[id]) return 'used';
+    if (el && E.canSend(s, id, el).ok) return 'ready';
+    if (!el && D.ELEMENTS.some(x => E.canSend(s, id, x).ok)) return 'ready';
+    return 'idle';
+  }
+  const DEP_WORD = { on: '守護中', used: '已派出', ready: '可派出', idle: '待命' };
+  function depChip(s, id, el) {
+    const d = D.DEPUTIES[id], st = depState(s, id, el);
+    return `<button type="button" class="dep ${st}" data-dep="${id}" aria-label="${d.name}，${d.title}，${DEP_WORD[st]}"><b>${d.name}</b><small>${DEP_WORD[st]}</small></button>`;
+  }
+  function renderSanjiao(s) {
+    const box = $('sanjiao');
+    box.hidden = !RR().GUARD;
+    if (box.hidden) return;
+    box.innerHTML = depChip(s, 'sanjiao', null) + '<span class="sj-note">可替任何人擋</span>';
+  }
+  function onSend(id, el) {
+    if (!game) return;
+    const d = D.DEPUTIES[id];
+    if (d.partner === '*' && !el) {
+      const opts = D.ELEMENTS.filter(x => E.canSend(game, id, x).ok);
+      if (!opts.length) { toast(depState(game, id, null) === 'used' ? '三焦這一季已經派出過了' : '現在沒有人身上有禍患，不必派出'); return; }
+      if (opts.length === 1) { onSend(id, opts[0]); return; }
+      const list = $('pick-list');
+      list.innerHTML = '';
+      opts.forEach(x => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.innerHTML = `<b>${who(x)}</b><span>氣 ${game.qi[x]}，身上有禍患</span>`;
+        b.addEventListener('click', () => { closeDlg('dlg-pick'); onSend(id, x); });
+        list.appendChild(b);
+      });
+      openDlg('dlg-pick');
+      return;
+    }
+    const r = E.sendDeputy(game, id, el);
+    if (r.log[0].type === 'denied') { toast(r.log[0].reason); return; }
+    game = r.state;
+    save();
+    render();
+    $('narration').textContent = describe(r.log[0], game).text;
   }
   function renderTop(s) {
     const se = season(s);
@@ -249,6 +296,7 @@
     const s = game;
     renderTop(s);
     D.ELEMENTS.forEach(el => renderRegion(el, s));
+    renderSanjiao(s);
     renderEvents(s);
     renderTokens(s);
     renderHand(s);
@@ -273,6 +321,8 @@
       case 'woe': return { text: `「${D.EVENTS[e.id].name}」沒有當天處理，成了禍患：之後每旬 ${title(D.EVENTS[e.id].el)} −${RR().WOE_DAMAGE}。`, tone: 'bad' };
       case 'leave': return e.on ? { text: `${who(e.el)}撐不住，告假了。他的牌暫時不能用。`, tone: 'bad' } : { text: `${title(e.el)}恢復元氣，回朝了。`, tone: 'good' };
       case 'reshuffle': return { text: '用過的牌洗回牌庫。', tone: '' };
+      case 'send': return { text: `派出${D.DEPUTIES[e.deputy].name}，這一旬替${title(e.el)}擋下禍患。`, tone: 'good' };
+      case 'guard': return { text: `${D.DEPUTIES[e.deputy].name}替${title(e.el)}擋下禍患「${D.EVENTS[e.id].name}」，免去 ${e.blocked} 點傷害。`, tone: 'good' };
       case 'season': {
         const a = D.SEASONS[e.from], b = D.SEASONS[e.to];
         const ok = !e.weak && !e.tooNi;
@@ -338,6 +388,7 @@
       D.SEASONS.forEach(se => { if (done.includes(se.id) && !libList.includes('d:' + se.id)) libList.push('d:' + se.id); });
       if (done.includes('year') && !libList.includes('d:year')) libList.push('d:year');
       if (done.length || load()) D.ELEMENTS.forEach(el => { if (!libList.includes('m:' + el)) libList.push('m:' + el); });
+      if (libList.includes('m:' + D.SOVEREIGN)) D.DEPUTY_ORDER.forEach(id => { if (!libList.includes('p:' + id)) libList.push('p:' + id); });
     }
     return libList;
   }
@@ -356,7 +407,8 @@
         lock: kind === 'carry' ? '在一整年模式中化解一次就能收錄' : '化解一次就能收錄' };
     });
     return [
-      { title: '五官', note: '身體裡的五位要角', items: D.ELEMENTS.map(el => ({ id: 'm:' + el, name: `${M(el).title}・${M(el).organ}`, quote: M(el).line, source: D.SOURCES.minister, body: M(el).role, lock: '即位就能收錄' })) },
+      { title: '十二官', note: '五位要角與七位副官', items: D.ELEMENTS.map(el => ({ id: 'm:' + el, name: `${M(el).title}・${M(el).organ}`, quote: M(el).line, source: D.SOURCES.minister, body: M(el).role, lock: '即位就能收錄' }))
+        .concat(D.DEPUTY_ORDER.map(id => { const d = D.DEPUTIES[id]; return { id: 'p:' + id, name: `${d.name}・${d.title}`, quote: d.line, source: D.SOURCES.minister, body: d.role + (d.partner === '*' ? '在遊戲裡可以派給任何一位大臣。' : `在遊戲裡是${title(d.partner)}的副官。`), lock: '即位就能收錄' }; })) },
       { title: '五志', note: '情緒失衡時的徵兆', items: ev('emotion') },
       { title: '六氣', note: '天候變化時的徵兆', items: ev('weather') },
       { title: '四時遺訓', note: '每一季過關時收錄', items: D.SEASONS.map(se => ({ id: 'd:' + se.id, name: `${se.name}三月`, quote: se.decree, source: se.decreeSource, body: se.gloss, lock: `${se.name}天過關就能收錄` }))
@@ -484,6 +536,7 @@
     game = r.state;
     save();
     D.ELEMENTS.forEach(el => collect('m:' + el));
+    D.DEPUTY_ORDER.forEach(id => collect('p:' + id));
     try { const gc = window.goatcounter; if (gc && gc.count) gc.count({ path: 'linglan-play', title: '靈蘭即位', event: true, no_session: true }); } catch (e) { /* 略過 */ }
     showGame();
     $('narration').innerHTML = `<span>${fill(season(game).intro)}</span>` + visible(r.log).map(e => describe(e, game)).filter(x => x.text).map(x => `<span class="${x.tone}">${x.text}</span>`).join('');
@@ -492,8 +545,9 @@
 
   // ---------- 天師導覽 ----------
   const TOUR = [
-    { target: null, text: '陛下即位了。古人把身體看成一座王國：心是君主，肝是將軍，脾胃是司倉，肺是宰相，腎是大匠。陛下，就是這個身體的主人。' },
+    { target: null, text: '陛下即位了。古人把身體看成一座王國：心是君主，肝是將軍，脾是司倉，肺是宰相，腎是大匠。陛下，就是這個身體的主人。' },
     { target: 'kingdom', text: '每位都有「氣」，從 0 到 10。在 4 到 8 之間最安穩，太低會生病告假，太高也會出問題。點人物可以看詳細說明。' },
+    { target: 'kingdom', text: '大臣身邊還有七位副官，跟五位要角合起來就是「十二官」。搭檔身上有禍患時，副官會發亮，點一下就能派出，替他擋下這一旬的禍患。每位副官每季只能派一次，角落的三焦可以派給任何人。' },
     { target: 'goal', text: () => `目標是平安度過 ${R.TURNS} 旬。大臣的氣掉到 ${R.LEAVE_AT} 以下就會告假；兩位同時告假，或君主的氣歸零，王國就撐不下去了。` },
     { target: 'events', text: () => `早上傳來的徵兆，是身體出狀況前的小訊號。點開看我的解說。當天化解德最高；拖過一天就成了禍患，每旬扣 ${RR().WOE_DAMAGE} 點氣。` },
     { target: 'hand', text: () => `點一張牌，就是下一道令。${RR().FIX_HINT === 'read' ? '看過徵兆的解說後，能處理它的牌會標上「可化解」。' : '要自己判斷哪張牌能處理徵兆。'}「順時」的牌順著季節，有額外好處；「逆時」的牌會傷人，能免則免。` },
@@ -538,7 +592,7 @@
 
   // ---------- 畫面切換 ----------
   function showTitle() {
-    ['dlg-over', 'dlg-menu', 'dlg-sleep', 'dlg-event', 'dlg-sum', 'dlg-minister'].forEach(closeDlg);
+    ['dlg-over', 'dlg-menu', 'dlg-sleep', 'dlg-event', 'dlg-sum', 'dlg-minister', 'dlg-pick'].forEach(closeDlg);
     endTourQuiet();
     const saved = load();
     $('btn-continue').hidden = !(saved && !saved.over);
@@ -628,6 +682,8 @@
     if (v >= RR().OVER_AT) parts.push(`過亢，結算時會壓制${title(D.CTRL[el])}（${el}剋${D.CTRL[el]}），自己也會耗損。`);
     if (el === D.SOVEREIGN) parts.push(`君主的氣決定每旬的令：現在是 ${E.tokensFor(v, game.mode, game.season)} 道。`);
     $('mi-state').textContent = parts.join('');
+    const deps = D.DEPUTY_ORDER.filter(id => D.DEPUTIES[id].partner === el);
+    $('mi-deps').innerHTML = RR().GUARD ? deps.map(id => { const d = D.DEPUTIES[id]; return `<p><b>副官・${d.name}</b>（${d.title}，${DEP_WORD[depState(game, id, el)]}）<br><span class="quote">「${d.line}」</span></p>`; }).join('') : '';
     openDlg('dlg-minister');
   }
   function showOver() {
@@ -641,6 +697,7 @@
       ['德', game.de],
       ['當天化解', game.stats.omen + game.stats.dispel],
       ['拖成禍患才化解', game.stats.woe],
+      ['副官擋下禍患', game.stats.guard || 0],
       ['順時', game.shun],
       ['逆時', game.ni]
     ];
@@ -700,7 +757,12 @@
     $('btn-sleep').addEventListener('click', onSleep);
     $('btn-menu').addEventListener('click', () => openDlg('dlg-menu'));
     $('season-tag').addEventListener('click', () => toast(season(game).tagNote));
-    document.querySelectorAll('.region').forEach(b => b.addEventListener('click', () => showMinister(b.dataset.el)));
+    $('kingdom').addEventListener('click', ev => {
+      const dep = ev.target.closest('.dep');
+      if (dep) { const region = dep.closest('.region'); onSend(dep.dataset.dep, region ? region.dataset.el : null); return; }
+      const main = ev.target.closest('.region-main');
+      if (main) showMinister(main.closest('.region').dataset.el);
+    });
     $('m-tour').addEventListener('click', startTour);
     $('m-help').addEventListener('click', () => {
       closeDlg('dlg-menu');

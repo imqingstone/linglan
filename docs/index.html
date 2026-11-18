@@ -44,11 +44,12 @@
       <path d="M170 64 L196 44 L214 58 L240 30 L282 66" />
       <path class="river" d="M150 0 C140 60 168 100 150 150 S130 240 150 300" />
     </svg>
-    <button type="button" class="region" data-el="火"></button>
-    <button type="button" class="region" data-el="木"></button>
-    <button type="button" class="region" data-el="土"></button>
-    <button type="button" class="region" data-el="金"></button>
-    <button type="button" class="region" data-el="水"></button>
+    <div class="region" data-el="火"></div>
+    <div class="region" data-el="木"></div>
+    <div class="region" data-el="土"></div>
+    <div class="region" data-el="金"></div>
+    <div class="region" data-el="水"></div>
+    <div class="sanjiao" id="sanjiao"></div>
   </div>
 
   <div class="events" id="events" aria-label="徵兆與禍患"></div>
@@ -98,7 +99,16 @@
   <h2 id="mi-name"></h2>
   <p id="mi-line" class="quote"></p>
   <p id="mi-state"></p>
+  <div id="mi-deps" class="mi-deps"></div>
   <div class="row"><button class="primary" type="button" data-close>知道了</button></div>
+</dialog>
+
+<dialog id="dlg-pick" class="dlg">
+  <p class="dlg-kind">三焦・決瀆之官</p>
+  <h2>派三焦守護誰？</h2>
+  <p class="muted">三焦可以替任何一位有禍患的人，擋下這一旬的禍患。每季只能派一次。</p>
+  <div class="rests" id="pick-list"></div>
+  <div class="row"><button class="ghost" type="button" data-close>先不派</button></div>
 </dialog>
 
 <dialog id="dlg-sleep" class="dlg">
@@ -153,7 +163,8 @@
 <dialog id="dlg-help" class="dlg help">
   <h2>規則總覽</h2>
   <ol>
-    <li><b>身體是一座王國</b>：心是君主（你），肝是將軍，脾胃是司倉，肺是宰相，腎是大匠。各自對應木、火、土、金、水。</li>
+    <li><b>身體是一座王國</b>：心是君主（你），肝是將軍，脾是司倉，肺是宰相，腎是大匠。各自對應木、火、土、金、水。</li>
+    <li><b>副官</b>：另外七官是副官（膽、小腸、膻中、胃、大腸、膀胱、三焦），合起來就是十二官。搭檔身上有禍患時，副官會發亮，點一下就能派出，替他擋下這一旬的禍患。每位副官每季只能派一次，不花令；三焦可以派給任何人。</li>
     <li><b>氣</b>：每位都有 0–<span data-r="QI_MAX">10</span> 的氣，在 4–8 之間最安穩。點地圖上的人物可以看詳細狀態。</li>
     <li><b>目標</b>：平安度過 <span data-r="TURNS">6</span> 旬。大臣的氣掉到 <span data-r="LEAVE_AT">2</span> 以下會告假，他的牌就不能用；君主的氣歸零，或兩位大臣同時告假，就失敗了。</li>
     <li><b>下令</b>：點一張牌就是一道令。君主的氣越高，每旬能下的令越多。</li>

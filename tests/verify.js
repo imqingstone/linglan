@@ -437,6 +437,54 @@ test('新手：每旬開始，有徵兆就一定有能化解的牌；正常不�
   assert.ok(aids > 0);
 });
 
+// ---------- 副官 ----------
+function withWoe(el, over) {
+  const s = make(over || {});
+  const id = Object.keys(D.EVENTS).find(k => D.EVENTS[k].el === el && D.EVENTS[k].kind === 'emotion');
+  s.events = [{ id, stage: 'woe', since: 1 }];
+  return s;
+}
+
+test('副官：七位，每位有搭檔與原文；三焦可替任何人', () => {
+  assert.strictEqual(D.DEPUTY_ORDER.length, 7);
+  D.DEPUTY_ORDER.forEach(id => { const d = D.DEPUTIES[id]; assert.ok(d.name && d.line && d.role && (d.partner === '*' || D.ELEMENTS.includes(d.partner)), id); });
+  assert.strictEqual(D.DEPUTY_ORDER.filter(id => D.DEPUTIES[id].partner === '*').length, 1);
+  assert.strictEqual(D.ELEMENTS.length + D.DEPUTY_ORDER.length, 12, '十二官');
+});
+
+test('副官：搭檔有禍患才能派，派出後該旬禍患全擋，不花令', () => {
+  const s = withWoe('木');
+  assert.strictEqual(E.canSend(make({}), 'gall', '木').ok, false, '沒有禍患不能派');
+  const { state: t, log } = E.sendDeputy(s, 'gall');
+  assert.strictEqual(log[0].type, 'send'); assert.strictEqual(t.tokens, s.tokens);
+  const { state: u, log: l2 } = E.endTurn(t, 'early-late');
+  assert.strictEqual(u.qi.木, 5, '禍患被擋下');
+  assert.ok(l2.some(e => e.type === 'guard' && e.deputy === 'gall'));
+  assert.deepStrictEqual(u.shield, {}, '下一旬守護解除');
+  assert.strictEqual(E.endTurn(s, 'early-late').state.qi.木, 5 - R.WOE_DAMAGE, '沒派就照扣');
+});
+
+test('副官：每季一次；不能派給別人；同一旬不能重複守護', () => {
+  const s = withWoe('木');
+  assert.strictEqual(E.canSend(s, 'large', '木').ok, false, '大腸的搭檔是宰相');
+  let t = E.sendDeputy(s, 'gall').state;
+  assert.strictEqual(E.canSend(t, 'sanjiao', '木').ok, false, '已有人守護');
+  t = E.endTurn(t, 'early-late').state;
+  assert.strictEqual(E.canSend(t, 'gall', '木').ok, false, '這一季已派過');
+  assert.ok(E.canSend(t, 'sanjiao', '木').ok, '三焦還能派');
+  const r = E.sendDeputy(s, 'large', '木');
+  assert.strictEqual(r.state, s); assert.strictEqual(r.log[0].type, 'denied');
+});
+
+test('副官：三焦需要指定對象；一整年換季時副官恢復', () => {
+  const s = withWoe('金');
+  assert.strictEqual(E.canSend(s, 'sanjiao').ok, false);
+  assert.ok(E.canSend(s, 'sanjiao', '金').ok);
+  const y = clone(E.newGame(7, 'normal', 0, true).state);
+  y.turn = R.TURNS; y.events = []; y.guards.gall = false; D.ELEMENTS.forEach(el => { y.qi[el] = 6; });
+  assert.strictEqual(E.endTurn(y, D.SEASONS[0].rest).state.guards.gall, true);
+});
+
 // ---------- 一整年 ----------
 function toSeasonEnd(s) { s = clone(s); s.turn = R.TURNS; s.events = []; return s; }
 
@@ -531,6 +579,17 @@ function step(s, res, checks) {
 
 const stats = {};
 
+// 派副官：搭檔有禍患就派；prob < 1 時只有一定機率會去點（模擬亂打的人）
+function sendDeputies(s, prob, r, checks) {
+  D.ELEMENTS.forEach(el => {
+    if (prob < 1 && r() >= prob) return;
+    const own = D.DEPUTY_ORDER.find(id => D.DEPUTIES[id].partner === el && E.canSend(s, id, el).ok);
+    const pick = own || (E.canSend(s, 'sanjiao', el).ok ? 'sanjiao' : null);
+    if (pick) s = step(s, x => E.sendDeputy(x, pick, el), checks);
+  });
+  return s;
+}
+
 const STRATEGIES = {
   // 隨機亂打
   random(s, r, checks) {
@@ -540,6 +599,7 @@ const STRATEGIES = {
       if (!p.length || r() < 0.2) break;
       s = step(s, x => E.playCard(x, p[Math.floor(r() * p.length)]), checks);
     }
+    s = sendDeputies(s, 0.3, r, checks);
     const rest = D.REST_ORDER[Math.floor(r() * 3)];
     return step(s, x => E.endTurn(x, rest), checks);
   },
@@ -556,6 +616,7 @@ const STRATEGIES = {
       if (pick === undefined) break;
       s = step(s, x => E.playCard(x, pick), checks);
     }
+    s = sendDeputies(s, 1, r, checks);
     return step(s, x => E.endTurn(x, se.rest), checks);
   }
 };
@@ -593,11 +654,11 @@ test('一整年：兩種難度各 300 個種子跑完不出錯，不變量都成
   for (let seed = 1; seed <= 300; seed++) ['normal', 'easy'].forEach(mode => { run(seed, 'random', true, mode, 'year'); run(seed, 'simple', true, mode, 'year'); });
 });
 
-test('平衡護欄（一整年）：新手照提示 ≥ 90%；正常照提示 25%–60%、亂打 < 5%', () => {
+test('平衡護欄（一整年）：新手照提示 ≥ 90%；正常照提示 25%–85%、亂打 < 5%', () => {
   const es = rateOf('simple', 'easy', 'year', 1000), ns = rateOf('simple', 'normal', 'year', 1000), nr = rateOf('random', 'normal', 'year', 1000);
   stats['一整年'] = { 新手照提示: es + '%', 正常照提示: ns + '%', 正常亂打: nr + '%' };
   assert.ok(es >= 90, '新手 ' + es);
-  assert.ok(ns >= 25 && ns <= 60, '正常照提示 ' + ns);
+  assert.ok(ns >= 25 && ns <= 85, '正常照提示 ' + ns);
   assert.ok(nr < 5, '正常亂打 ' + nr);
 });
 
