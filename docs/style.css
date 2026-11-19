@@ -251,3 +251,8 @@ body.title-mode .title-view p,body.title-mode .backup summary{text-shadow:0 0 6p
 .sanjiao .sj-note{font-size:10px;color:var(--mute);padding-left:4px;text-shadow:0 0 4px var(--paper)}
 .mi-deps p{margin:8px 0 0;font-size:14px;line-height:1.7}
 .mi-deps .quote{font-size:13px}
+/* 手機首頁：頁尾疊在蘭花上，加一層和紙色的半透明淡底（只限窄螢幕，iPad 與電腦不變） */
+@media(max-width:600px){
+  body.title-mode footer{margin:24px 4px calc(16px + env(safe-area-inset-bottom));padding:14px 12px 16px;border-radius:16px;background:rgba(246,232,207,.8);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);color:var(--ink);box-shadow:0 0 18px 6px rgba(246,232,207,.55)}
+  body.title-mode .home-link{background:rgba(251,243,228,.9)}
+}
